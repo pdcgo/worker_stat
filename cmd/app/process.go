@@ -8,6 +8,7 @@ import (
 
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/wargasipil/stream_engine/stream_core"
+	"github.com/wargasipil/stream_engine/stream_utils"
 )
 
 type ProcessHandler func(entry *accounting_core.JournalEntry) error
@@ -20,7 +21,7 @@ func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
 		accountTeamID = uint64(entry.Account.TeamID)
 
 		key := fmt.Sprintf(
-			"daily/%s/team/%d/%s/%d",
+			"daily/%s/team/%d/account/%s/team/%d",
 			entry.EntryTime.Format("2006-01-02"),
 			entry.TeamID,
 			entry.Account.AccountKey,
@@ -122,11 +123,24 @@ func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
 type PeriodicSnapshot func(t time.Time) error
 
 func NewPeriodicSnapshot(kv *stream_core.HashMapCounter) PeriodicSnapshot {
+
+	db := stream_utils.NewDatabaseLocal()
+
 	return func(t time.Time) error {
+		var err error
+
+		// writer := stream_utils.CsvWriter{Data: map[string][][]string{}}
+
 		log.Println("----------------------- snapshot ----------------------------")
-		err := kv.Snapshot(t, func(key string, kind reflect.Kind, value any) error {
+		err = kv.Snapshot(t, func(key string, kind reflect.Kind, value any) error {
 			log.Printf("%s: %.3f\n", key, value)
-			return nil
+			// writer.Write(key, kind, value)
+			err = stream_utils.WriteToDatabase(db, key, value)
+
+			if err != nil {
+				panic(err)
+			}
+			return err
 		})
 		log.Println("----------------------- end snapshot ------------------------")
 

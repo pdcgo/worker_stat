@@ -81,7 +81,8 @@ func NewWorker(
 					Preload("Account").
 					Where("entry_time > ?", "2025-12-28").
 					Where("id > ?", pkey).
-					Limit(5000).
+					// Limit(5000).
+					Limit(5).
 					Order("id asc").
 					Find(&entries).
 					Error
@@ -102,6 +103,8 @@ func NewWorker(
 					kv.PutUint64("accounting_pkey", uint64(entry.ID))
 				}
 
+				// test
+				break
 			}
 
 			return nil
