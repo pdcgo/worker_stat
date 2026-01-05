@@ -6,7 +6,7 @@ require (
 	github.com/google/wire v0.7.0
 	github.com/pdcgo/accounting_service v1.0.13
 	github.com/pdcgo/shared v1.0.113
-	github.com/wargasipil/stream_engine v0.0.0-20260103101544-f765021f3f56
+	github.com/wargasipil/stream_engine v0.0.0-20260105001927-5dcdbb8eac06
 	gorm.io/gorm v1.31.1
 )
 

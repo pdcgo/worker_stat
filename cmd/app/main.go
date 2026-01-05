@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"os"
-	"time"
 
-	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/pdcgo/shared/configs"
 	"github.com/pdcgo/shared/db_connect"
+	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"gorm.io/gorm"
 )
@@ -27,89 +25,38 @@ func NewDatabase(cfg *configs.AppConfig) (*gorm.DB, error) {
 }
 
 type Worker struct {
-	Run func() error
+	Cli   *cli.Command
+	Close func() error
 }
 
 func NewWorker(
-	cfg *stream_core.CoreConfig,
 	db *gorm.DB,
-	process ProcessHandler,
-	snapshot PeriodicSnapshot,
 	kv *stream_core.HashMapCounter,
+	calculate CalculateFunc,
+	snapshot SnapshotFunc,
 ) *Worker {
+
 	return &Worker{
-		Run: func() error {
+		Cli: &cli.Command{
+			Commands: []*cli.Command{
+				{
+					Name:        "calculate",
+					Description: "running calculate",
+					Action:      cli.ActionFunc(calculate),
+				},
+				{
+					Name:        "snapshot",
+					Description: "running snapshot",
+					Action:      cli.ActionFunc(snapshot),
+				},
+			},
+		},
 
-			var err error
-
-			defer kv.Close()
-			err = kv.ResetCounter()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			duration := time.Minute
-			tick := time.NewTimer(duration)
-
-			last := time.Now()
-			go func() {
-				for {
-					select {
-					case <-tick.C:
-						err = snapshot(last)
-						if err != nil {
-							slog.Error(err.Error())
-						}
-						tick.Reset(duration)
-						last = time.Now()
-					case <-context.Background().Done():
-						return
-					}
-				}
-			}()
-
-			defer snapshot(time.Now().AddDate(-1, 0, 0))
-
-			// iterating journal entries
-			var entries []*accounting_core.JournalEntry
-			for {
-
-				pkey := kv.GetUint64("accounting_pkey")
-				entries = []*accounting_core.JournalEntry{}
-				err = db.
-					Model(&accounting_core.JournalEntry{}).
-					Preload("Account").
-					Where("entry_time > ?", "2025-12-28").
-					Where("id > ?", pkey).
-					// Limit(5000).
-					Limit(5).
-					Order("id asc").
-					Find(&entries).
-					Error
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				if len(entries) == 0 {
-					break
-				}
-
-				for _, entry := range entries {
-					err = process(entry)
-					if err != nil {
-						log.Fatal(err)
-					}
-					kv.PutUint64("accounting_pkey", uint64(entry.ID))
-				}
-
-				// test
-				break
-			}
-
-			return nil
+		Close: func() error {
+			return kv.Close()
 		},
 	}
+
 }
 
 func main() {
@@ -121,9 +68,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = worker.Run()
+	defer worker.Close()
+
+	err = worker.Cli.Run(context.Background(), os.Args)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 }

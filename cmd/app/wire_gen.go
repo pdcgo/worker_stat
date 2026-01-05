@@ -14,7 +14,6 @@ import (
 // Injectors from wire.go:
 
 func InitializeWorker() (*Worker, error) {
-	coreConfig := NewStreamCoreConfig()
 	appConfig, err := configs.NewProductionConfig()
 	if err != nil {
 		return nil, err
@@ -23,12 +22,15 @@ func InitializeWorker() (*Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	coreConfig := NewStreamCoreConfig()
 	hashMapCounter, err := stream_core.NewHashMapCounter(coreConfig)
 	if err != nil {
 		return nil, err
 	}
 	processHandler := NewProcessHandler(hashMapCounter)
 	periodicSnapshot := NewPeriodicSnapshot(hashMapCounter)
-	worker := NewWorker(coreConfig, db, processHandler, periodicSnapshot, hashMapCounter)
+	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, hashMapCounter)
+	snapshotFunc := NewSnapshotFunc(hashMapCounter)
+	worker := NewWorker(db, hashMapCounter, calculateFunc, snapshotFunc)
 	return worker, nil
 }

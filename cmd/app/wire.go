@@ -17,6 +17,8 @@ func InitializeWorker() (*Worker, error) {
 		stream_core.NewHashMapCounter,
 		NewProcessHandler,
 		NewPeriodicSnapshot,
+		NewCalculate,
+		NewSnapshotFunc,
 		NewWorker,
 	)
 	return &Worker{}, nil
