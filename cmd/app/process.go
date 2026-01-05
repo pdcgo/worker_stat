@@ -1,13 +1,14 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
+	"github.com/pdcgo/worker_stat/metric/metric_daily"
+	"github.com/pdcgo/worker_stat/metric/metric_team"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
 	"gorm.io/gorm"
@@ -26,131 +27,15 @@ type PostgresWriter struct {
 type ProcessHandler func(entry *accounting_core.JournalEntry) error
 
 func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
-	return func(entry *accounting_core.JournalEntry) error {
-		var journalTeamID, accountTeamID uint64
 
-		journalTeamID = uint64(entry.TeamID)
-		accountTeamID = uint64(entry.Account.TeamID)
+	handler := stream_utils.NewChain(
+		metric_daily.DailyTeamAccount(kv),
+		metric_daily.DailyLiability(kv),
+		metric_daily.CashFlow(kv),
+		metric_team.TeamAccount(kv),
+	)
 
-		key := fmt.Sprintf(
-			"daily/%s/team/%d/account/%s/team/%d",
-			entry.EntryTime.Format("2006-01-02"),
-			entry.TeamID,
-			entry.Account.AccountKey,
-			entry.Account.TeamID,
-		)
-
-		kv.IncFloat64(key+"/debit", entry.Debit)
-		kv.IncFloat64(key+"/credit", entry.Credit)
-
-		switch entry.Account.BalanceType {
-		case accounting_core.DebitBalance:
-			kv.Merge(stream_core.MergeOpMin, reflect.Float64, key+"/balance",
-				key+"/debit",
-				key+"/credit",
-			)
-		case accounting_core.CreditBalance:
-			kv.Merge(stream_core.MergeOpAdd, reflect.Float64, key+"/balance",
-				key+"/credit",
-				key+"/debit",
-			)
-		}
-
-		acc := entry.Account
-
-		switch acc.Coa {
-		case accounting_core.ASSET:
-			balance := entry.Debit - entry.Credit
-			key := fmt.Sprintf(
-				"daily/%s/team/%d/asset",
-				entry.EntryTime.Format("2006-01-02"),
-				entry.TeamID,
-			)
-			kv.IncFloat64(key, balance)
-			// update general asset
-			kv.IncFloat64("all/asset", balance)
-
-		case accounting_core.LIABILITY:
-			balance := entry.Credit - entry.Debit
-			key := fmt.Sprintf(
-				"daily/%s/team/%d/liability",
-				entry.EntryTime.Format("2006-01-02"),
-				entry.TeamID,
-			)
-			kv.IncFloat64(key, balance)
-			// update general liability
-			kv.IncFloat64("all/liability", balance)
-		// case accounting_core.EQUITY:
-		case accounting_core.EXPENSE:
-			balance := entry.Debit - entry.Credit
-			key := fmt.Sprintf(
-				"daily/%s/team/%d/expense",
-				entry.EntryTime.Format("2006-01-02"),
-				entry.TeamID,
-			)
-			kv.IncFloat64(key, balance)
-			// update general liability
-			kv.IncFloat64("all/expense", balance)
-
-		case accounting_core.REVENUE:
-			balance := entry.Credit - entry.Debit
-			key := fmt.Sprintf(
-				"daily/%s/team/%d/revenue",
-				entry.EntryTime.Format("2006-01-02"),
-				entry.TeamID,
-			)
-			kv.IncFloat64(key, balance)
-			// update general liability
-			kv.IncFloat64("all/revenue", balance)
-		}
-
-		switch acc.AccountKey {
-		case accounting_core.PayableAccount:
-			recvKey := fmt.Sprintf(
-				"daily/%s/team/%d/account/%s/team/%d/balance",
-				entry.EntryTime.Format("2006-01-02"),
-				accountTeamID,
-				accounting_core.ReceivableAccount,
-				journalTeamID,
-			)
-
-			diffkey := fmt.Sprintf(
-				"daily/%s/team/%d/error/payable_diff/team/%d/amount",
-				entry.EntryTime.Format("2006-01-02"),
-				journalTeamID,
-				accountTeamID,
-			)
-
-			kv.Merge(stream_core.MergeOpAdd, reflect.Float64, diffkey,
-				key+"/balance",
-				recvKey,
-			)
-
-		case accounting_core.ReceivableAccount:
-			payKey := fmt.Sprintf(
-				"daily/%s/team/%d/account/%s/team/%d/balance",
-				entry.EntryTime.Format("2006-01-02"),
-				accountTeamID,
-				accounting_core.PayableAccount,
-				journalTeamID,
-			)
-
-			diffkey := fmt.Sprintf(
-				"daily/%s/team/%d/error/receivable_diff/team/%d/amount",
-				entry.EntryTime.Format("2006-01-02"),
-				journalTeamID,
-				accountTeamID,
-			)
-
-			kv.Merge(stream_core.MergeOpAdd, reflect.Float64, diffkey,
-				payKey,
-				key+"/balance",
-			)
-
-		}
-
-		return nil
-	}
+	return ProcessHandler(handler)
 }
 
 type PeriodicSnapshot func(t time.Time) error
