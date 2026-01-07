@@ -2,7 +2,6 @@ package metric_team
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/wargasipil/stream_engine/stream_core"
@@ -19,56 +18,73 @@ func TeamAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*
 				entry.Account.AccountKey,
 			)
 
-			kv.IncFloat64(key+"/debit", entry.Debit)
-			kv.IncFloat64(key+"/credit", entry.Credit)
+			err := kv.Transaction(func(tx *stream_core.Transaction) error {
+				tx.IncFloat64(key+"/debit", entry.Debit)
+				tx.IncFloat64(key+"/credit", entry.Credit)
 
-			switch entry.Account.BalanceType {
-			case accounting_core.DebitBalance:
-				kv.Merge(stream_core.MergeOpMin, reflect.Float64, key+"/balance",
-					key+"/debit",
-					key+"/credit",
-				)
-			case accounting_core.CreditBalance:
-				kv.Merge(stream_core.MergeOpAdd, reflect.Float64, key+"/balance",
-					key+"/credit",
-					key+"/debit",
-				)
-			}
+				// log.Println(key + "/credit")
 
-			acc := entry.Account
+				switch entry.Account.BalanceType {
+				case accounting_core.DebitBalance:
+					tx.PutFloat64(key+"/balance",
+						tx.GetFloat64(key+"/debit")-tx.GetFloat64(key+"/credit"),
+					)
 
-			switch acc.Coa {
-			case accounting_core.ASSET:
-				balance := entry.Debit - entry.Credit
-				key := fmt.Sprintf(
-					"team/%d/asset",
-					entry.TeamID,
-				)
-				kv.IncFloat64(key, balance)
+				case accounting_core.CreditBalance:
+					tx.PutFloat64(key+"/balance",
+						tx.GetFloat64(key+"/credit")-tx.GetFloat64(key+"/debit"),
+					)
+				}
 
-			case accounting_core.LIABILITY:
-				balance := entry.Credit - entry.Debit
-				key := fmt.Sprintf(
-					"team/%d/liability",
-					entry.TeamID,
-				)
-				kv.IncFloat64(key, balance)
+				acc := entry.Account
 
-			case accounting_core.EXPENSE:
-				balance := entry.Debit - entry.Credit
-				key := fmt.Sprintf(
-					"team/%d/expense",
-					entry.TeamID,
-				)
-				kv.IncFloat64(key, balance)
+				switch acc.Coa {
+				case accounting_core.ASSET:
+					balance := entry.Debit - entry.Credit
+					key := fmt.Sprintf(
+						"team/%d/asset",
+						entry.TeamID,
+					)
+					tx.IncFloat64(key+"/balance", balance)
+					tx.IncFloat64(key+"/debit", entry.Debit)
+					tx.IncFloat64(key+"/credit", entry.Credit)
 
-			case accounting_core.REVENUE:
-				balance := entry.Credit - entry.Debit
-				key := fmt.Sprintf(
-					"team/%d/revenue",
-					entry.TeamID,
-				)
-				kv.IncFloat64(key, balance)
+				case accounting_core.LIABILITY:
+					balance := entry.Credit - entry.Debit
+					key := fmt.Sprintf(
+						"team/%d/liability",
+						entry.TeamID,
+					)
+					tx.IncFloat64(key+"/balance", balance)
+					tx.IncFloat64(key+"/debit", entry.Debit)
+					tx.IncFloat64(key+"/credit", entry.Credit)
+
+				case accounting_core.EXPENSE:
+					balance := entry.Debit - entry.Credit
+					key := fmt.Sprintf(
+						"team/%d/expense",
+						entry.TeamID,
+					)
+					tx.IncFloat64(key+"/balance", balance)
+					tx.IncFloat64(key+"/debit", entry.Debit)
+					tx.IncFloat64(key+"/credit", entry.Credit)
+
+				case accounting_core.REVENUE:
+					balance := entry.Credit - entry.Debit
+					key := fmt.Sprintf(
+						"team/%d/revenue",
+						entry.TeamID,
+					)
+					tx.IncFloat64(key+"/balance", balance)
+					tx.IncFloat64(key+"/debit", entry.Debit)
+					tx.IncFloat64(key+"/credit", entry.Credit)
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				return err
 			}
 
 			return next(entry)

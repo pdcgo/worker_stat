@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/pdcgo/worker_stat/metric/metric_key"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
@@ -19,18 +21,72 @@ func NewSnapshotFunc(
 ) SnapshotFunc {
 
 	reportTeam := stream_utils.NewChainSnapshot(
+		// func(next stream_utils.NextFunc) stream_utils.NextFunc {
+		// 	return func(key string, kind reflect.Kind, value any) error {
+
+		// 		if value == 0.00 {
+		// 			return nil
+		// 		}
+
+		// 		if !strings.HasPrefix(key, "team") {
+		// 			return next(key, kind, value)
+		// 		}
+
+		// 		if !strings.HasSuffix(key, "expense/balance") {
+		// 			return next(key, kind, value)
+		// 		}
+
+		// 		if key == "team/101/expense/balance" {
+
+		// 			diff := kv.GetFloat64("team/101/expense/balance") - kv.GetFloat64("team/101/liability/balance")
+		// 			log.Printf("diff: %.3f\n", diff)
+
+		// 			kv.PrintFloat64("team/101/asset/credit")
+		// 			kv.PrintFloat64("team/101/asset/debit")
+		// 			kv.PrintFloat64("team/101/liability/credit")
+		// 			// log.Println(kv.KeyCollision("team/101/asset/credit"))
+
+		// 		}
+
+		// 		log.Printf("%s: %.3f\n", key, value)
+
+		// 		return next(key, kind, value)
+		// 	}
+		// },
 		func(next stream_utils.NextFunc) stream_utils.NextFunc {
 			return func(key string, kind reflect.Kind, value any) error {
+				if !strings.HasSuffix(key, "/error_balance") {
+					return next(key, kind, value)
 
-				if value == 0.00 {
-					return nil
 				}
 
-				if !strings.Contains(key, "asset") {
-					return nil
+				if !strings.HasPrefix(key, "daily/2026-01-06/team/70") {
+					return next(key, kind, value)
 				}
 
-				// log.Printf("%s: %.3f\n", key, value)
+				// log.Printf("\n\n%s: %.3f\n", key, value)
+				// kv.PrintFloat64("daily/2026-01-06/team/70/asset/balance")
+				// kv.PrintFloat64("daily/2026-01-06/team/70/liability/balance")
+
+				// log.Print("\n\n")
+
+				// log.Printf("Expense: dif %.3f",
+				// 	kv.PrintFloat64("daily/2026-01-06/team/70/expense/balance")-
+				// 		kv.PrintFloat64("daily/2026-01-06/team/70/account/stock_borrow_cost/balance")-
+				// 		kv.PrintFloat64("daily/2026-01-06/team/70/account/warehouse_cost/balance"),
+				// )
+
+				// log.Printf("Gros Profit: dif %.3f",
+				// 	kv.PrintFloat64("daily/2026-01-06/team/70/revenue/balance")-
+				// 		kv.PrintFloat64("daily/2026-01-06/team/70/expense/balance"),
+				// )
+
+				// kv.PrintFloat64("daily/2026-01-06/team/70/error_balance")
+				// kv.PrintFloat64("daily/2026-01-06/team/70/balance")
+				// kv.PrintFloat64("daily/2026-01-05/team/70/error_balance")
+				// kv.PrintFloat64("daily/2026-01-05/team/70/balance")
+
+				// log.Print("\n\n")
 
 				return next(key, kind, value)
 			}
@@ -40,42 +96,9 @@ func NewSnapshotFunc(
 	chainfunc := stream_utils.NewChainSnapshot(
 		stream_utils.PararelChainSnapshot(
 			reportTeam,
-			func(key string, kind reflect.Kind, value any) error {
-				if !strings.Contains(key, "cash/") {
-					return nil
-				}
-
-				if !strings.Contains(key, "balance") {
-					return nil
-				}
-
-				if value == 0.00 {
-					return nil
-				}
-				log.Printf("%s: %.3f\n", key, value)
-
-				return nil
-			},
-			func(key string, kind reflect.Kind, value any) error {
-
-				if !strings.Contains(key, "expense") {
-					return nil
-				}
-
-				if value == 0.00 {
-					return nil
-				}
-				log.Printf("%s: %.3f\n", key, value)
-
-				return nil
-			},
 		),
 		func(next stream_utils.NextFunc) stream_utils.NextFunc {
 			return func(key string, kind reflect.Kind, value any) error {
-				err := reportTeam(key, kind, value)
-				if err != nil {
-					return err
-				}
 
 				if value == 0.00 {
 
@@ -92,37 +115,61 @@ func NewSnapshotFunc(
 		},
 	)
 
+	// storage, err := stream_utils.NewFirestoreKeyStorage(context.Background(), "experimental")
+	// if err != nil {
+	// 	panic(err)
+	// }
 	return func(ctx context.Context, c *cli.Command) error {
+		// start := time.Now()
+
 		t := time.Now().AddDate(-1, 0, 0)
-		err := kv.Snapshot(t, chainfunc)
+		err := kv.Snapshot(t, false, chainfunc)
 		if err != nil {
 			return err
 		}
 
-		diff := kv.GetFloat64("daily/2026-01-05/team/47/error/payable_diff/team/31/amount")
-		receivable := kv.GetFloat64("daily/2026-01-05/team/47/account/payable/team/31/balance")
-		payable := kv.GetFloat64("daily/2026-01-05/team/31/account/receivable/team/47/balance")
+		// -------------------playground here
+		fmt.Printf("\n\n")
 
-		log.Println(kv.KeyCollision("daily/2026-01-05/team/47/error/payable_diff/team/31/amount"))
+		prefix := metric_key.NewDailyTeamPrefix(time.Now(), 70)
+		errprefix := metric_key.NewErrorPrefix(prefix)
 
-		log.Printf("diff: %.3f payable: %.3f receivable: %.3f\n", diff, payable, receivable)
+		kv.PrintFloat64(prefix.Join("all_cash_account/balance"))
+		kv.PrintFloat64(prefix.Join("all_cash_account/debit"))
+		kv.PrintFloat64(prefix.Join("all_cash_account/credit"))
+		fmt.Printf("\n\n")
 
-		kv.Merge(stream_core.MergeOpAdd, reflect.Float64, "daily/2026-01-05/team/47/error/payable_diff/team/31/amount",
-			"daily/2026-01-05/team/47/account/payable/team/31/balance",
-			"daily/2026-01-05/team/31/account/receivable/team/47/balance",
+		fmt.Printf("%s: %.3f", errprefix.Join("all_cash"),
+			kv.GetFloat64(prefix.Join("all_cash_account/credit"))-
+				kv.PrintFloat64(prefix.Join("account/ads_expense/debit"))-
+				kv.PrintFloat64(prefix.Join("account/packing_cost/debit"))-
+				kv.PrintFloat64(prefix.Join("account/bank_fee/debit"))-
+				kv.PrintFloat64(prefix.Join("account/stock_borrow_cost/debit"))-
+				kv.PrintFloat64(prefix.Join("account/stock_pending/debit"))-
+				kv.PrintFloat64(prefix.Join("account/warehouse_cost/debit")),
 		)
+		fmt.Printf("\n\n")
 
-		diff = kv.GetFloat64("daily/2026-01-05/team/47/error/payable_diff/team/31/amount")
-		receivable = kv.GetFloat64("daily/2026-01-05/team/47/account/payable/team/31/balance")
-		payable = kv.GetFloat64("daily/2026-01-05/team/31/account/receivable/team/47/balance")
+		kv.PrintFloat64(prefix.Join("all_stock/balance"))
+		kv.PrintFloat64(prefix.Join("all_stock/debit"))
+		kv.PrintFloat64(prefix.Join("all_stock/credit"))
+		fmt.Printf("\n\n")
 
-		log.Println(kv.KeyCollision("daily/2026-01-05/team/47/error/payable_diff/team/31/amount"))
+		kv.PrintFloat64(prefix.Join("account/cash/balance"))
+		kv.PrintFloat64(prefix.Join("cash/last_balance"))
+		kv.PrintFloat64(prefix.Join("account/shopeepay/balance"))
+		kv.PrintFloat64(prefix.Join("shopeepay/last_balance"))
 
-		log.Printf("diff: %.3f payable: %.3f receivable: %.3f\n", diff, payable, receivable)
-		log.Printf("all Asset: %.3f", kv.GetFloat64("all/asset"))
-		log.Printf("all Liability: %.3f", kv.GetFloat64("all/liability"))
-		log.Printf("all Revenue: %.3f", kv.GetFloat64("all/revenue"))
-		log.Printf("all Expense: %.3f", kv.GetFloat64("all/expense"))
+		fmt.Printf("\n\n")
+
+		// // change to firestore
+		// err = kv.Snapshot(start, true, stream_utils.NewChainSnapshot(storage.SnapshotHandler()))
+		// if err != nil {
+		// 	return err
+		// }
+
+		kv.PrintStat()
+
 		return nil
 	}
 }

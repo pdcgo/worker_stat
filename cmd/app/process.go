@@ -2,8 +2,6 @@ package main
 
 import (
 	"log"
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
@@ -29,7 +27,9 @@ type ProcessHandler func(entry *accounting_core.JournalEntry) error
 func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
 
 	handler := stream_utils.NewChain(
-		metric_daily.DailyTeamAccount(kv),
+		metric_daily.DailyCashFlowAccount(kv),
+		metric_daily.DailyStockAccount(kv),
+		metric_daily.DailyTeamToTeamAccount(kv),
 		metric_daily.DailyLiability(kv),
 		metric_daily.CashFlow(kv),
 		metric_team.TeamAccount(kv),
@@ -42,21 +42,14 @@ type PeriodicSnapshot func(t time.Time) error
 
 func NewPeriodicSnapshot(kv *stream_core.HashMapCounter) PeriodicSnapshot {
 
-	snapshotFunc := stream_utils.NewChainSnapshot(
-		func(next stream_utils.NextFunc) stream_utils.NextFunc {
-			return func(key string, kind reflect.Kind, value any) error {
-				if value == 0 {
-					return nil
-				}
-				if !strings.Contains(key, "payable_diff") {
-					return nil
-				}
+	// storage, err := stream_utils.NewFirestoreKeyStorage(context.Background(), "experimental")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-				log.Printf("%s: %.3f\n", key, value)
-				return next(key, kind, value)
-			}
-		},
-	)
+	// snapshotFunc := stream_utils.NewChainSnapshot(
+	// 	storage.SnapshotHandler(),
+	// )
 
 	return func(t time.Time) error {
 		var err error
@@ -64,7 +57,7 @@ func NewPeriodicSnapshot(kv *stream_core.HashMapCounter) PeriodicSnapshot {
 		// writer := stream_utils.CsvWriter{Data: map[string][][]string{}}
 
 		log.Println("----------------------- snapshot ----------------------------")
-		err = kv.Snapshot(t, snapshotFunc)
+		// err = kv.Snapshot(t, snapshotFunc)
 		log.Println("----------------------- end snapshot ------------------------")
 
 		return err

@@ -2,7 +2,6 @@ package metric_daily
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/wargasipil/stream_engine/stream_core"
@@ -43,10 +42,15 @@ func DailyLiability(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandle
 					accountTeamID,
 				)
 
-				kv.Merge(stream_core.MergeOpAdd, reflect.Float64, diffkey,
-					key+"/balance",
-					recvKey,
-				)
+				err := kv.Transaction(func(tx *stream_core.Transaction) error {
+					tx.PutFloat64(diffkey, tx.GetFloat64(key+"/balance")+tx.GetFloat64(recvKey))
+
+					return nil
+				})
+
+				if err != nil {
+					return err
+				}
 
 			case accounting_core.ReceivableAccount:
 				payKey := fmt.Sprintf(
@@ -64,10 +68,15 @@ func DailyLiability(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandle
 					accountTeamID,
 				)
 
-				kv.Merge(stream_core.MergeOpAdd, reflect.Float64, diffkey,
-					payKey,
-					key+"/balance",
-				)
+				err := kv.Transaction(func(tx *stream_core.Transaction) error {
+					tx.PutFloat64(diffkey, tx.GetFloat64(payKey)+tx.GetFloat64(key+"/balance"))
+
+					return nil
+				})
+
+				if err != nil {
+					return err
+				}
 
 			}
 

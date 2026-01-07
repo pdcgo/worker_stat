@@ -29,7 +29,8 @@ func InitializeWorker() (*Worker, error) {
 	}
 	processHandler := NewProcessHandler(hashMapCounter)
 	periodicSnapshot := NewPeriodicSnapshot(hashMapCounter)
-	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, hashMapCounter)
+	calculateBalanceHistory := NewCalculateBalanceHistory(db, hashMapCounter)
+	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, calculateBalanceHistory, hashMapCounter)
 	snapshotFunc := NewSnapshotFunc(hashMapCounter)
 	worker := NewWorker(db, hashMapCounter, calculateFunc, snapshotFunc)
 	return worker, nil
