@@ -31,7 +31,12 @@ func InitializeWorker() (*Worker, error) {
 	periodicSnapshot := NewPeriodicSnapshot(hashMapCounter)
 	calculateBalanceHistory := NewCalculateBalanceHistory(db, hashMapCounter)
 	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, calculateBalanceHistory, hashMapCounter)
-	snapshotFunc := NewSnapshotFunc(hashMapCounter)
+	statDatabase, err := NewStatDatabase()
+	if err != nil {
+		return nil, err
+	}
+	migrator := NewMigrator(statDatabase)
+	snapshotFunc := NewSnapshotFunc(hashMapCounter, statDatabase, migrator)
 	worker := NewWorker(db, hashMapCounter, calculateFunc, snapshotFunc)
 	return worker, nil
 }

@@ -1,13 +1,33 @@
 package metric_daily
 
 import (
-	"fmt"
-
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/pdcgo/worker_stat/metric/metric_key"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
 )
+
+//go:generate metric_generate
+type DailyTeamAccount struct {
+	ID      int64   `metric:"id" json:"id" gorm:"primaryKey;autoIncrement:false"`
+	Day     string  `metric:"index" json:"day"`
+	TeamID  uint64  `metric:"index" json:"team_id"`
+	Account string  `metric:"index" json:"account"`
+	Debit   float64 `json:"debit"`
+	Credit  float64 `json:"credit"`
+	Balance float64 `json:"balance"`
+}
+
+type DailyTeamToTeamAccount struct {
+	ID       int64   `metric:"id" json:"id" gorm:"primaryKey;autoIncrement:false"`
+	Day      string  `metric:"index" json:"day"`
+	TeamID   uint64  `metric:"index" json:"team_id"`
+	Account  string  `metric:"index" json:"account"`
+	ToTeamID uint64  `metric:"index" json:"to_team_id"`
+	Debit    float64 `json:"debit"`
+	Credit   float64 `json:"credit"`
+	Balance  float64 `json:"balance"`
+}
 
 func DailyCashFlowAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
@@ -78,7 +98,7 @@ func DailyStockAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHan
 	}
 }
 
-func DailyTeamToTeamAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func DailyTeamToTeamAccountFunc(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 		return func(entry *accounting_core.JournalEntry) error {
 			// var journalTeamID, accountTeamID uint64
@@ -86,119 +106,40 @@ func DailyTeamToTeamAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNe
 			// accountTeamID = uint64(entry.Account.TeamID)
 
 			err := kv.Transaction(func(tx *stream_core.Transaction) error {
-				key := fmt.Sprintf(
-					"daily/%s/team/%d/account/%s/team/%d",
+				accountMetric := NewMetricDailyTeamAccount(tx, entry.EntryTime.Format("2006-01-02"), uint64(entry.TeamID), string(entry.Account.AccountKey))
+				accountToTeamMetric := NewMetricDailyTeamToTeamAccount(
+					tx,
 					entry.EntryTime.Format("2006-01-02"),
-					entry.TeamID,
-					entry.Account.AccountKey,
-					entry.Account.TeamID,
+					uint64(entry.TeamID),
+					string(entry.Account.AccountKey),
+					uint64(entry.Account.TeamID),
 				)
 
-				accountKey := fmt.Sprintf(
-					"daily/%s/team/%d/account/%s",
-					entry.EntryTime.Format("2006-01-02"),
-					entry.TeamID,
-					entry.Account.AccountKey,
-				)
-
-				tx.IncFloat64(key+"/debit", entry.Debit)
-				tx.IncFloat64(key+"/credit", entry.Credit)
-				tx.IncFloat64(accountKey+"/debit", entry.Debit)
-				tx.IncFloat64(accountKey+"/credit", entry.Credit)
+				accountMetric.IncDebit(entry.Debit)
+				accountMetric.IncCredit(entry.Credit)
+				accountToTeamMetric.IncDebit(entry.Debit)
+				accountToTeamMetric.IncCredit(entry.Credit)
 
 				switch entry.Account.BalanceType {
 				case accounting_core.DebitBalance:
-					tx.PutFloat64(key+"/balance",
-						tx.GetFloat64(key+"/debit")-tx.GetFloat64(key+"/credit"),
+					accountMetric.PutBalance(
+						accountMetric.GetDebit() - accountMetric.GetCredit(),
 					)
 
-					tx.PutFloat64(accountKey+"/balance",
-						tx.GetFloat64(accountKey+"/debit")-tx.GetFloat64(accountKey+"/credit"),
+					accountToTeamMetric.PutBalance(
+						accountToTeamMetric.GetDebit() - accountToTeamMetric.GetCredit(),
 					)
 
 				case accounting_core.CreditBalance:
-
-					tx.PutFloat64(key+"/balance",
-						tx.GetFloat64(key+"/credit")-tx.GetFloat64(key+"/debit"),
+					accountMetric.PutBalance(
+						accountMetric.GetCredit() - accountMetric.GetDebit(),
 					)
 
-					tx.PutFloat64(accountKey+"/balance",
-						tx.GetFloat64(accountKey+"/credit")-tx.GetFloat64(accountKey+"/debit"),
+					accountToTeamMetric.PutBalance(
+						accountToTeamMetric.GetCredit() - accountToTeamMetric.GetDebit(),
 					)
+
 				}
-
-				acc := entry.Account
-
-				switch acc.Coa {
-				case accounting_core.ASSET:
-					balance := entry.Debit - entry.Credit
-					key := fmt.Sprintf(
-						"daily/%s/team/%d/asset",
-						entry.EntryTime.Format("2006-01-02"),
-						entry.TeamID,
-					)
-					tx.IncFloat64(key+"/balance", balance)
-					tx.IncFloat64(key+"/debit", entry.Debit)
-					tx.IncFloat64(key+"/credit", entry.Credit)
-
-				case accounting_core.LIABILITY:
-					balance := entry.Credit - entry.Debit
-					key := fmt.Sprintf(
-						"daily/%s/team/%d/liability",
-						entry.EntryTime.Format("2006-01-02"),
-						entry.TeamID,
-					)
-					tx.IncFloat64(key+"/balance", balance)
-					tx.IncFloat64(key+"/debit", entry.Debit)
-					tx.IncFloat64(key+"/credit", entry.Credit)
-
-				case accounting_core.EQUITY:
-					balance := entry.Credit - entry.Debit
-					key := fmt.Sprintf(
-						"daily/%s/team/%d/equity",
-						entry.EntryTime.Format("2006-01-02"),
-						entry.TeamID,
-					)
-					tx.IncFloat64(key+"/balance", balance)
-					tx.IncFloat64(key+"/debit", entry.Debit)
-					tx.IncFloat64(key+"/credit", entry.Credit)
-
-				case accounting_core.EXPENSE:
-					balance := entry.Debit - entry.Credit
-					key := fmt.Sprintf(
-						"daily/%s/team/%d/expense",
-						entry.EntryTime.Format("2006-01-02"),
-						entry.TeamID,
-					)
-					tx.IncFloat64(key+"/balance", balance)
-					tx.IncFloat64(key+"/debit", entry.Debit)
-					tx.IncFloat64(key+"/credit", entry.Credit)
-
-				case accounting_core.REVENUE:
-					balance := entry.Credit - entry.Debit
-					key := fmt.Sprintf(
-						"daily/%s/team/%d/revenue",
-						entry.EntryTime.Format("2006-01-02"),
-						entry.TeamID,
-					)
-					tx.IncFloat64(key+"/balance", balance)
-					tx.IncFloat64(key+"/debit", entry.Debit)
-					tx.IncFloat64(key+"/credit", entry.Credit)
-				}
-
-				dailyKey := fmt.Sprintf(
-					"daily/%s/team/%d",
-					entry.EntryTime.Format("2006-01-02"),
-					entry.TeamID,
-				)
-
-				tx.PutFloat64(dailyKey+"/error_balance",
-					kv.GetFloat64(dailyKey+"/asset/balance")-kv.GetFloat64(dailyKey+"/liability/balance")-kv.GetFloat64(dailyKey+"/equity/balance"),
-				)
-
-				tx.PutFloat64(dailyKey+"/gross_profit",
-					kv.GetFloat64(dailyKey+"/revenue/balance")-kv.GetFloat64(dailyKey+"/expense/balance"),
-				)
 
 				return nil
 			})

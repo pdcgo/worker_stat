@@ -29,10 +29,10 @@ func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
 	handler := stream_utils.NewChain(
 		metric_daily.DailyCashFlowAccount(kv),
 		metric_daily.DailyStockAccount(kv),
-		metric_daily.DailyTeamToTeamAccount(kv),
+		metric_daily.DailyTeamToTeamAccountFunc(kv),
 		metric_daily.DailyLiability(kv),
 		metric_daily.CashFlow(kv),
-		metric_team.TeamAccount(kv),
+		metric_team.TeamAccountFunc(kv),
 	)
 
 	return ProcessHandler(handler)

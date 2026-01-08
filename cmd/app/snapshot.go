@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/pdcgo/worker_stat/metric/metric_key"
+	"github.com/pdcgo/worker_stat/metric/metric_daily"
+	"github.com/pdcgo/worker_stat/metric/metric_team"
+	"github.com/pdcgo/worker_stat/writer"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
@@ -18,7 +19,20 @@ type SnapshotFunc cli.ActionFunc
 
 func NewSnapshotFunc(
 	kv *stream_core.HashMapCounter,
+	statdb *StatDatabase,
+	migrate Migrator,
+
 ) SnapshotFunc {
+	log.Println("migrating database")
+	err := migrate()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pgwriterNext, pgwriterClose := writer.NewPostgresWriter(statdb.DB)
+	defer pgwriterClose()
+
+	pgwriter := stream_utils.NewChain(pgwriterNext)
 
 	reportTeam := stream_utils.NewChainSnapshot(
 		// func(next stream_utils.NextFunc) stream_utils.NextFunc {
@@ -97,28 +111,72 @@ func NewSnapshotFunc(
 		stream_utils.PararelChainSnapshot(
 			reportTeam,
 		),
+		// func(next stream_utils.NextFunc) stream_utils.NextFunc {
+		// 	return func(key string, kind reflect.Kind, value any) error {
+
+		// 		if value == 0.00 {
+
+		// 			return nil
+		// 		}
+		// 		if !strings.Contains(key, "payable_diff/") ||
+		// 			!strings.Contains(key, "receivable_diff/") {
+		// 			return nil
+		// 		}
+
+		// 		log.Printf("%s: %.3f\n", key, value)
+		// 		return next(key, kind, value)
+		// 	}
+		// },
 		func(next stream_utils.NextFunc) stream_utils.NextFunc {
 			return func(key string, kind reflect.Kind, value any) error {
+				// log.Println(key)
 
-				if value == 0.00 {
+				if metric_team.IsMetricTeamAccount(key) {
+					metric, err := metric_team.NewMetricTeamAccountFromKey(kv, key)
+					if err != nil {
+						return err
+					}
 
-					return nil
+					err = pgwriter(metric)
+					if err != nil {
+						return err
+					}
+
+					return next(key, kind, value)
 				}
-				if !strings.Contains(key, "payable_diff/") ||
-					!strings.Contains(key, "receivable_diff/") {
-					return nil
+
+				if metric_daily.IsMetricDailyTeamAccount(key) {
+					metric, err := metric_daily.NewMetricDailyTeamAccountFromKey(kv, key)
+					if err != nil {
+						return err
+					}
+
+					err = pgwriter(metric)
+					if err != nil {
+						return err
+					}
+					return next(key, kind, value)
 				}
 
-				log.Printf("%s: %.3f\n", key, value)
+				if metric_daily.IsMetricDailyTeamToTeamAccount(key) {
+					metric, err := metric_daily.NewMetricDailyTeamToTeamAccountFromKey(kv, key)
+					if err != nil {
+						return err
+					}
+
+					err = pgwriter(metric)
+					if err != nil {
+						return err
+					}
+					return next(key, kind, value)
+				}
+
+				// log.Println(key, value)
 				return next(key, kind, value)
 			}
 		},
 	)
 
-	// storage, err := stream_utils.NewFirestoreKeyStorage(context.Background(), "experimental")
-	// if err != nil {
-	// 	panic(err)
-	// }
 	return func(ctx context.Context, c *cli.Command) error {
 		// start := time.Now()
 
@@ -127,46 +185,6 @@ func NewSnapshotFunc(
 		if err != nil {
 			return err
 		}
-
-		// -------------------playground here
-		fmt.Printf("\n\n")
-
-		prefix := metric_key.NewDailyTeamPrefix(time.Now(), 70)
-		errprefix := metric_key.NewErrorPrefix(prefix)
-
-		kv.PrintFloat64(prefix.Join("all_cash_account/balance"))
-		kv.PrintFloat64(prefix.Join("all_cash_account/debit"))
-		kv.PrintFloat64(prefix.Join("all_cash_account/credit"))
-		fmt.Printf("\n\n")
-
-		fmt.Printf("%s: %.3f", errprefix.Join("all_cash"),
-			kv.GetFloat64(prefix.Join("all_cash_account/credit"))-
-				kv.PrintFloat64(prefix.Join("account/ads_expense/debit"))-
-				kv.PrintFloat64(prefix.Join("account/packing_cost/debit"))-
-				kv.PrintFloat64(prefix.Join("account/bank_fee/debit"))-
-				kv.PrintFloat64(prefix.Join("account/stock_borrow_cost/debit"))-
-				kv.PrintFloat64(prefix.Join("account/stock_pending/debit"))-
-				kv.PrintFloat64(prefix.Join("account/warehouse_cost/debit")),
-		)
-		fmt.Printf("\n\n")
-
-		kv.PrintFloat64(prefix.Join("all_stock/balance"))
-		kv.PrintFloat64(prefix.Join("all_stock/debit"))
-		kv.PrintFloat64(prefix.Join("all_stock/credit"))
-		fmt.Printf("\n\n")
-
-		kv.PrintFloat64(prefix.Join("account/cash/balance"))
-		kv.PrintFloat64(prefix.Join("cash/last_balance"))
-		kv.PrintFloat64(prefix.Join("account/shopeepay/balance"))
-		kv.PrintFloat64(prefix.Join("shopeepay/last_balance"))
-
-		fmt.Printf("\n\n")
-
-		// // change to firestore
-		// err = kv.Snapshot(start, true, stream_utils.NewChainSnapshot(storage.SnapshotHandler()))
-		// if err != nil {
-		// 	return err
-		// }
 
 		kv.PrintStat()
 

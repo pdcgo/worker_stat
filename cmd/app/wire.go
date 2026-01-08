@@ -13,6 +13,8 @@ func InitializeWorker() (*Worker, error) {
 	wire.Build(
 		configs.NewProductionConfig,
 		NewDatabase,
+		NewStatDatabase,
+		NewMigrator,
 		NewStreamCoreConfig,
 		stream_core.NewHashMapCounter,
 		NewProcessHandler,

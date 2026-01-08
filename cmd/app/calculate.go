@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
-	"github.com/pdcgo/worker_stat/metric/metric_key"
+	"github.com/pdcgo/shared/pkg/debugtool"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
@@ -92,6 +92,7 @@ func NewCalculate(
 				}
 				last = time.Now()
 				// tick.Reset(time.Second)
+				calculateBalance()
 				time.Sleep(time.Minute)
 			}
 
@@ -119,7 +120,7 @@ func NewCalculate(
 	}
 }
 
-type CalculateBalanceHistory func(teamIDs []uint) error
+type CalculateBalanceHistory func() error
 
 type Balance struct {
 	TeamID      uint    `json:"team_id"`
@@ -138,17 +139,17 @@ func NewCalculateBalanceHistory(
 		DailyBalance(kv),
 	)
 
-	return func(teamIDs []uint) error {
-		ids := []uint{}
-		mapid := map[uint]bool{}
+	return func() error {
+		// ids := []uint{}
+		// mapid := map[uint]bool{}
 
-		for _, teamID := range teamIDs {
-			if mapid[teamID] {
-				continue
-			}
-			mapid[teamID] = true
-			ids = append(ids, teamID)
-		}
+		// for _, teamID := range teamIDs {
+		// 	if mapid[teamID] {
+		// 		continue
+		// 	}
+		// 	mapid[teamID] = true
+		// 	ids = append(ids, teamID)
+		// }
 
 		err := db.Raw(`
 			SELECT 
@@ -161,10 +162,10 @@ func NewCalculateBalanceHistory(
 			join account_types aty on aty.id = ea.account_type_id 
 			where 
 				bah.at > ?
-				and bah.team_id in ?
+				-- and bah.team_id in ?
 			group by 
 				date_at, bah.team_id, aty.type
-		`, time.Now().AddDate(0, 0, -7), ids).
+		`, time.Now().AddDate(0, 0, -7)).
 			Find(&balances).
 			Error
 
@@ -186,28 +187,7 @@ func NewCalculateBalanceHistory(
 func DailyBalance(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*Balance] {
 	return func(next stream_utils.ChainNextFunc[*Balance]) stream_utils.ChainNextFunc[*Balance] {
 		return func(data *Balance) error {
-			t, err := time.Parse(time.RFC3339, data.DateAt)
-			if err != nil {
-				return err
-			}
-
-			prefix := metric_key.NewDailyTeamPrefix(t, uint64(data.TeamID))
-
-			err = kv.Transaction(func(tx *stream_core.Transaction) error {
-				switch data.AccountType {
-				case "bank":
-					tx.PutFloat64(prefix.Join("cash/last_balance"), data.Amount)
-				case "shopeepay":
-					tx.PutFloat64(prefix.Join("shopeepay/last_balance"), data.Amount)
-				default:
-					tx.PutFloat64(prefix.Join("unknown/last_balance"), data.Amount)
-				}
-				return nil
-			})
-
-			if err != nil {
-				return err
-			}
+			debugtool.LogJson(data)
 
 			return next(data)
 		}

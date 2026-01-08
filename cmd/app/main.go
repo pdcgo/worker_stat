@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/pdcgo/shared/configs"
-	"github.com/pdcgo/shared/db_connect"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"gorm.io/gorm"
@@ -18,10 +16,6 @@ func NewStreamCoreConfig() *stream_core.CoreConfig {
 		HashMapCounterSlots: 134_217_728,
 		DynamicValuePath:    "/tmp/worker_stat/value",
 	}
-}
-
-func NewDatabase(cfg *configs.AppConfig) (*gorm.DB, error) {
-	return db_connect.NewProductionDatabase("worker-stat", &cfg.Database)
 }
 
 type Worker struct {
