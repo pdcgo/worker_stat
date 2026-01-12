@@ -8,7 +8,6 @@ package main
 
 import (
 	"github.com/pdcgo/shared/configs"
-	"github.com/wargasipil/stream_engine/stream_core"
 )
 
 // Injectors from wire.go:
@@ -22,21 +21,18 @@ func InitializeWorker() (*Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	keyStore := NewKeystore()
 	coreConfig := NewStreamCoreConfig()
-	hashMapCounter, err := stream_core.NewHashMapCounter(coreConfig)
-	if err != nil {
-		return nil, err
-	}
-	processHandler := NewProcessHandler(hashMapCounter)
-	periodicSnapshot := NewPeriodicSnapshot(hashMapCounter)
-	calculateBalanceHistory := NewCalculateBalanceHistory(db, hashMapCounter)
-	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, calculateBalanceHistory, hashMapCounter)
+	processHandler := NewProcessHandler(keyStore)
+	periodicSnapshot := NewPeriodicSnapshot(keyStore)
+	calculateBalanceHistory := NewCalculateBalanceHistory(db, keyStore)
+	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, calculateBalanceHistory, keyStore)
 	statDatabase, err := NewStatDatabase()
 	if err != nil {
 		return nil, err
 	}
 	migrator := NewMigrator(statDatabase)
-	snapshotFunc := NewSnapshotFunc(hashMapCounter, statDatabase, migrator)
-	worker := NewWorker(db, hashMapCounter, calculateFunc, snapshotFunc)
+	snapshotFunc := NewSnapshotFunc(keyStore, statDatabase, migrator)
+	worker := NewWorker(db, keyStore, calculateFunc, snapshotFunc)
 	return worker, nil
 }

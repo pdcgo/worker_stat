@@ -6,7 +6,6 @@ package main
 import (
 	"github.com/google/wire"
 	"github.com/pdcgo/shared/configs"
-	"github.com/wargasipil/stream_engine/stream_core"
 )
 
 func InitializeWorker() (*Worker, error) {
@@ -16,7 +15,7 @@ func InitializeWorker() (*Worker, error) {
 		NewStatDatabase,
 		NewMigrator,
 		NewStreamCoreConfig,
-		stream_core.NewHashMapCounter,
+		NewKeystore,
 		NewProcessHandler,
 		NewPeriodicSnapshot,
 		NewCalculateBalanceHistory,

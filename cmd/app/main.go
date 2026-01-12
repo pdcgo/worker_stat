@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v3"
+	"github.com/wargasipil/stream_engine/counter"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,11 @@ func NewStreamCoreConfig() *stream_core.CoreConfig {
 	}
 }
 
+func NewKeystore() stream_core.KeyStore {
+	kv := counter.NewKeyCounter("/tmp/worker_stat")
+	return kv
+}
+
 type Worker struct {
 	Cli   *cli.Command
 	Close func() error
@@ -25,7 +31,7 @@ type Worker struct {
 
 func NewWorker(
 	db *gorm.DB,
-	kv *stream_core.HashMapCounter,
+	kv stream_core.KeyStore,
 	calculate CalculateFunc,
 	snapshot SnapshotFunc,
 ) *Worker {

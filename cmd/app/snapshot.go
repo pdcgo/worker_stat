@@ -5,7 +5,6 @@ import (
 	"log"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/pdcgo/worker_stat/metric/metric_daily"
 	"github.com/pdcgo/worker_stat/metric/metric_team"
@@ -18,7 +17,7 @@ import (
 type SnapshotFunc cli.ActionFunc
 
 func NewSnapshotFunc(
-	kv *stream_core.HashMapCounter,
+	kv stream_core.KeyStore,
 	statdb *StatDatabase,
 	migrate Migrator,
 
@@ -107,7 +106,7 @@ func NewSnapshotFunc(
 		},
 	)
 
-	chainfunc := stream_utils.NewChainSnapshot(
+	stream_utils.NewChainSnapshot(
 		stream_utils.PararelChainSnapshot(
 			reportTeam,
 		),
@@ -180,13 +179,13 @@ func NewSnapshotFunc(
 	return func(ctx context.Context, c *cli.Command) error {
 		// start := time.Now()
 
-		t := time.Now().AddDate(-1, 0, 0)
-		err := kv.Snapshot(t, false, chainfunc)
-		if err != nil {
-			return err
-		}
+		// t := time.Now().AddDate(-1, 0, 0)
+		// err := kv.Snapshot(t, false, chainfunc)
+		// if err != nil {
+		// 	return err
+		// }
 
-		kv.PrintStat()
+		// kv.PrintStat()
 
 		return nil
 	}

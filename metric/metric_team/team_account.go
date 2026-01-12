@@ -16,46 +16,38 @@ type TeamAccount struct {
 	Balance float64 `json:"balance"`
 }
 
-func TeamAccountFunc(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func TeamAccountFunc(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 		return func(entry *accounting_core.JournalEntry) error {
 
-			err := kv.Transaction(func(tx *stream_core.Transaction) error {
-				acc := entry.Account
+			acc := entry.Account
 
-				metric := NewMetricTeamAccount(tx, uint64(entry.TeamID), string(acc.AccountKey))
-				metric.IncDebit(entry.Debit)
-				metric.IncCredit(entry.Credit)
+			metric := NewMetricTeamAccount(kv, uint64(entry.TeamID), string(acc.AccountKey))
+			metric.IncDebit(entry.Debit)
+			metric.IncCredit(entry.Credit)
 
-				coaMetric := NewMetricTeamAccount(tx, uint64(entry.TeamID), acc.Coa.String())
-				coaMetric.IncDebit(entry.Debit)
-				coaMetric.IncCredit(entry.Credit)
+			coaMetric := NewMetricTeamAccount(kv, uint64(entry.TeamID), acc.Coa.String())
+			coaMetric.IncDebit(entry.Debit)
+			coaMetric.IncCredit(entry.Credit)
 
-				switch entry.Account.BalanceType {
-				case accounting_core.DebitBalance:
-					metric.PutBalance(
-						metric.GetDebit() - metric.GetCredit(),
-					)
+			switch entry.Account.BalanceType {
+			case accounting_core.DebitBalance:
+				metric.PutBalance(
+					metric.GetDebit() - metric.GetCredit(),
+				)
 
-					coaMetric.PutBalance(
-						coaMetric.GetDebit() - coaMetric.GetCredit(),
-					)
+				coaMetric.PutBalance(
+					coaMetric.GetDebit() - coaMetric.GetCredit(),
+				)
 
-				case accounting_core.CreditBalance:
-					metric.PutBalance(
-						metric.GetCredit() - metric.GetDebit(),
-					)
+			case accounting_core.CreditBalance:
+				metric.PutBalance(
+					metric.GetCredit() - metric.GetDebit(),
+				)
 
-					coaMetric.PutBalance(
-						coaMetric.GetDebit() - coaMetric.GetCredit(),
-					)
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				return err
+				coaMetric.PutBalance(
+					coaMetric.GetDebit() - coaMetric.GetCredit(),
+				)
 			}
 
 			return next(entry)

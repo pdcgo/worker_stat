@@ -24,7 +24,7 @@ type PostgresWriter struct {
 
 type ProcessHandler func(entry *accounting_core.JournalEntry) error
 
-func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
+func NewProcessHandler(kv stream_core.KeyStore) ProcessHandler {
 
 	handler := stream_utils.NewChain(
 		metric_daily.DailyCashFlowAccount(kv),
@@ -40,7 +40,7 @@ func NewProcessHandler(kv *stream_core.HashMapCounter) ProcessHandler {
 
 type PeriodicSnapshot func(t time.Time) error
 
-func NewPeriodicSnapshot(kv *stream_core.HashMapCounter) PeriodicSnapshot {
+func NewPeriodicSnapshot(kv stream_core.KeyStore) PeriodicSnapshot {
 
 	// storage, err := stream_utils.NewFirestoreKeyStorage(context.Background(), "experimental")
 	// if err != nil {

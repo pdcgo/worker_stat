@@ -8,7 +8,7 @@ import (
 	"github.com/wargasipil/stream_engine/stream_utils"
 )
 
-func DailyLiability(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func DailyLiability(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 		return func(entry *accounting_core.JournalEntry) error {
 			var journalTeamID, accountTeamID uint64
@@ -42,15 +42,7 @@ func DailyLiability(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandle
 					accountTeamID,
 				)
 
-				err := kv.Transaction(func(tx *stream_core.Transaction) error {
-					tx.PutFloat64(diffkey, tx.GetFloat64(key+"/balance")+tx.GetFloat64(recvKey))
-
-					return nil
-				})
-
-				if err != nil {
-					return err
-				}
+				kv.PutFloat64(diffkey, kv.GetFloat64(key+"/balance")+kv.GetFloat64(recvKey))
 
 			case accounting_core.ReceivableAccount:
 				payKey := fmt.Sprintf(
@@ -68,15 +60,7 @@ func DailyLiability(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandle
 					accountTeamID,
 				)
 
-				err := kv.Transaction(func(tx *stream_core.Transaction) error {
-					tx.PutFloat64(diffkey, tx.GetFloat64(payKey)+tx.GetFloat64(key+"/balance"))
-
-					return nil
-				})
-
-				if err != nil {
-					return err
-				}
+				kv.PutFloat64(diffkey, kv.GetFloat64(payKey)+kv.GetFloat64(key+"/balance"))
 
 			}
 

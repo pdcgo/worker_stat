@@ -29,7 +29,7 @@ type DailyTeamToTeamAccount struct {
 	Balance  float64 `json:"balance"`
 }
 
-func DailyCashFlowAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func DailyCashFlowAccount(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 
 		return func(entry *accounting_core.JournalEntry) error {
@@ -40,29 +40,19 @@ func DailyCashFlowAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNext
 				return next(entry)
 			}
 
-			err := kv.Transaction(func(tx *stream_core.Transaction) error {
+			prefix := metric_key.NewDailyTeamPrefix(entry.EntryTime, uint64(entry.TeamID))
+			kv.IncFloat64(prefix.Join("all_cash_account/debit"), entry.Debit)
+			kv.IncFloat64(prefix.Join("all_cash_account/credit"), entry.Credit)
 
-				prefix := metric_key.NewDailyTeamPrefix(entry.EntryTime, uint64(entry.TeamID))
-				tx.IncFloat64(prefix.Join("all_cash_account/debit"), entry.Debit)
-				tx.IncFloat64(prefix.Join("all_cash_account/credit"), entry.Credit)
-
-				tx.PutFloat64(prefix.Join("all_cash_account/balance"),
-					tx.GetFloat64(prefix.Join("all_cash_account/debit"))-tx.GetFloat64(prefix.Join("all_cash_account/credit")),
-				)
-
-				return nil
-			})
-
-			if err != nil {
-				return err
-			}
-
+			kv.PutFloat64(prefix.Join("all_cash_account/balance"),
+				kv.GetFloat64(prefix.Join("all_cash_account/debit"))-kv.GetFloat64(prefix.Join("all_cash_account/credit")),
+			)
 			return next(entry)
 		}
 	}
 }
 
-func DailyStockAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func DailyStockAccount(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 
 		return func(entry *accounting_core.JournalEntry) error {
@@ -76,76 +66,59 @@ func DailyStockAccount(kv *stream_core.HashMapCounter) stream_utils.ChainNextHan
 				return next(entry)
 			}
 
-			err := kv.Transaction(func(tx *stream_core.Transaction) error {
+			prefix := metric_key.NewDailyTeamPrefix(entry.EntryTime, uint64(entry.TeamID))
+			kv.IncFloat64(prefix.Join("all_stock/debit"), entry.Debit)
+			kv.IncFloat64(prefix.Join("all_stock/credit"), entry.Credit)
 
-				prefix := metric_key.NewDailyTeamPrefix(entry.EntryTime, uint64(entry.TeamID))
-				tx.IncFloat64(prefix.Join("all_stock/debit"), entry.Debit)
-				tx.IncFloat64(prefix.Join("all_stock/credit"), entry.Credit)
-
-				tx.PutFloat64(prefix.Join("all_stock/balance"),
-					tx.GetFloat64(prefix.Join("all_stock/debit"))-tx.GetFloat64(prefix.Join("all_stock/credit")),
-				)
-
-				return nil
-			})
-
-			if err != nil {
-				return err
-			}
+			kv.PutFloat64(prefix.Join("all_stock/balance"),
+				kv.GetFloat64(prefix.Join("all_stock/debit"))-kv.GetFloat64(prefix.Join("all_stock/credit")),
+			)
 
 			return next(entry)
 		}
 	}
 }
 
-func DailyTeamToTeamAccountFunc(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
+func DailyTeamToTeamAccountFunc(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*accounting_core.JournalEntry] {
 	return func(next stream_utils.ChainNextFunc[*accounting_core.JournalEntry]) stream_utils.ChainNextFunc[*accounting_core.JournalEntry] {
 		return func(entry *accounting_core.JournalEntry) error {
 			// var journalTeamID, accountTeamID uint64
 			// journalTeamID = uint64(entry.TeamID)
 			// accountTeamID = uint64(entry.Account.TeamID)
 
-			err := kv.Transaction(func(tx *stream_core.Transaction) error {
-				accountMetric := NewMetricDailyTeamAccount(tx, entry.EntryTime.Format("2006-01-02"), uint64(entry.TeamID), string(entry.Account.AccountKey))
-				accountToTeamMetric := NewMetricDailyTeamToTeamAccount(
-					tx,
-					entry.EntryTime.Format("2006-01-02"),
-					uint64(entry.TeamID),
-					string(entry.Account.AccountKey),
-					uint64(entry.Account.TeamID),
+			accountMetric := NewMetricDailyTeamAccount(kv, entry.EntryTime.Format("2006-01-02"), uint64(entry.TeamID), string(entry.Account.AccountKey))
+			accountToTeamMetric := NewMetricDailyTeamToTeamAccount(
+				kv,
+				entry.EntryTime.Format("2006-01-02"),
+				uint64(entry.TeamID),
+				string(entry.Account.AccountKey),
+				uint64(entry.Account.TeamID),
+			)
+
+			accountMetric.IncDebit(entry.Debit)
+			accountMetric.IncCredit(entry.Credit)
+			accountToTeamMetric.IncDebit(entry.Debit)
+			accountToTeamMetric.IncCredit(entry.Credit)
+
+			switch entry.Account.BalanceType {
+			case accounting_core.DebitBalance:
+				accountMetric.PutBalance(
+					accountMetric.GetDebit() - accountMetric.GetCredit(),
 				)
 
-				accountMetric.IncDebit(entry.Debit)
-				accountMetric.IncCredit(entry.Credit)
-				accountToTeamMetric.IncDebit(entry.Debit)
-				accountToTeamMetric.IncCredit(entry.Credit)
+				accountToTeamMetric.PutBalance(
+					accountToTeamMetric.GetDebit() - accountToTeamMetric.GetCredit(),
+				)
 
-				switch entry.Account.BalanceType {
-				case accounting_core.DebitBalance:
-					accountMetric.PutBalance(
-						accountMetric.GetDebit() - accountMetric.GetCredit(),
-					)
+			case accounting_core.CreditBalance:
+				accountMetric.PutBalance(
+					accountMetric.GetCredit() - accountMetric.GetDebit(),
+				)
 
-					accountToTeamMetric.PutBalance(
-						accountToTeamMetric.GetDebit() - accountToTeamMetric.GetCredit(),
-					)
+				accountToTeamMetric.PutBalance(
+					accountToTeamMetric.GetCredit() - accountToTeamMetric.GetDebit(),
+				)
 
-				case accounting_core.CreditBalance:
-					accountMetric.PutBalance(
-						accountMetric.GetCredit() - accountMetric.GetDebit(),
-					)
-
-					accountToTeamMetric.PutBalance(
-						accountToTeamMetric.GetCredit() - accountToTeamMetric.GetDebit(),
-					)
-
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				return err
 			}
 
 			return next(entry)

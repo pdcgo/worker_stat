@@ -21,15 +21,15 @@ func NewCalculate(
 	process ProcessHandler,
 	snapshot PeriodicSnapshot,
 	calculateBalance CalculateBalanceHistory,
-	kv *stream_core.HashMapCounter,
+	kv stream_core.KeyStore,
 
 ) CalculateFunc {
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
-		err = kv.ResetCounter()
-		if err != nil {
-			log.Fatal(err)
-		}
+		// err = kv.ResetCounter()
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 
 		// duration := time.Second * 30
 		// tick := time.NewTimer(time.Minute * 15)
@@ -101,14 +101,8 @@ func NewCalculate(
 				if err != nil {
 					log.Fatal(err)
 				}
-				err = kv.Transaction(func(tx *stream_core.Transaction) error {
-					tx.PutUint64("accounting_pkey", uint64(entry.ID))
-					return nil
-				})
 
-				if err != nil {
-					return err
-				}
+				kv.PutUint64("accounting_pkey", uint64(entry.ID))
 
 			}
 
@@ -131,7 +125,7 @@ type Balance struct {
 
 func NewCalculateBalanceHistory(
 	db *gorm.DB,
-	kv *stream_core.HashMapCounter,
+	kv stream_core.KeyStore,
 ) CalculateBalanceHistory {
 
 	balances := []*Balance{}
@@ -184,9 +178,15 @@ func NewCalculateBalanceHistory(
 	}
 }
 
-func DailyBalance(kv *stream_core.HashMapCounter) stream_utils.ChainNextHandler[*Balance] {
+func DailyBalance(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*Balance] {
 	return func(next stream_utils.ChainNextFunc[*Balance]) stream_utils.ChainNextFunc[*Balance] {
 		return func(data *Balance) error {
+			// var err error
+			// err = kv.Transaction(func(tx *stream_core.Transaction) error {
+			// 	metric := metric_team.NewMetricTeamLastBalance(tx, data.DateAt)
+			// 	return nil
+			// })
+
 			debugtool.LogJson(data)
 
 			return next(data)
