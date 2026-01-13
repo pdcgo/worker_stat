@@ -34,6 +34,7 @@ func NewWorker(
 	kv stream_core.KeyStore,
 	calculate CalculateFunc,
 	snapshot SnapshotFunc,
+	debugfunc DebugFunc,
 ) *Worker {
 
 	return &Worker{
@@ -48,6 +49,11 @@ func NewWorker(
 					Name:        "snapshot",
 					Description: "running snapshot",
 					Action:      cli.ActionFunc(snapshot),
+				},
+				{
+					Name:        "debug",
+					Description: "running debug",
+					Action:      cli.ActionFunc(debugfunc),
 				},
 			},
 		},

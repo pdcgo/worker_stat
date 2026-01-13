@@ -33,6 +33,7 @@ func InitializeWorker() (*Worker, error) {
 	}
 	migrator := NewMigrator(statDatabase)
 	snapshotFunc := NewSnapshotFunc(keyStore, statDatabase, migrator)
-	worker := NewWorker(db, keyStore, calculateFunc, snapshotFunc)
+	debugFunc := NewDebugFunc()
+	worker := NewWorker(db, keyStore, calculateFunc, snapshotFunc, debugFunc)
 	return worker, nil
 }

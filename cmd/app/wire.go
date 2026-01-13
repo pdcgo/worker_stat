@@ -21,6 +21,7 @@ func InitializeWorker() (*Worker, error) {
 		NewCalculateBalanceHistory,
 		NewCalculate,
 		NewSnapshotFunc,
+		NewDebugFunc,
 		NewWorker,
 	)
 	return &Worker{}, nil
