@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/urfave/cli/v3"
-	"github.com/wargasipil/stream_engine/counter"
 	"github.com/wargasipil/stream_engine/stream_core"
+	"github.com/wargasipil/stream_engine/stream_counter"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +20,7 @@ func NewStreamCoreConfig() *stream_core.CoreConfig {
 }
 
 func NewKeystore() stream_core.KeyStore {
-	kv := counter.NewKeyCounter("/tmp/worker_stat")
+	kv := stream_counter.NewKeyCounter("/tmp/worker_stat")
 	return kv
 }
 

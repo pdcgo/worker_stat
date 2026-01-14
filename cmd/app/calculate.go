@@ -26,6 +26,10 @@ func NewCalculate(
 ) CalculateFunc {
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
+
+		// periodic snapshot
+		go snapshot(context.Background(), time.Minute)
+
 		// err = kv.ResetCounter()
 		// if err != nil {
 		// 	log.Fatal(err)
@@ -34,7 +38,6 @@ func NewCalculate(
 		// duration := time.Second * 30
 		// tick := time.NewTimer(time.Minute * 15)
 
-		last := time.Now()
 		// go func() {
 		// 	for {
 		// 		select {
@@ -86,13 +89,7 @@ func NewCalculate(
 			// }
 
 			if len(entries) == 0 {
-				err = snapshot(last)
-				if err != nil {
-					log.Fatal(err)
-				}
-				last = time.Now()
-				// tick.Reset(time.Second)
-				calculateBalance()
+
 				time.Sleep(time.Minute)
 			}
 

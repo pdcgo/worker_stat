@@ -4,14 +4,14 @@ import (
 	"context"
 
 	"github.com/urfave/cli/v3"
-	"github.com/wargasipil/stream_engine/counter"
+	"github.com/wargasipil/stream_engine/stream_counter"
 )
 
 type DebugFunc cli.ActionFunc
 
 func NewDebugFunc() DebugFunc {
 	return func(ctx context.Context, c *cli.Command) error {
-		cdata, err := counter.NewOffsetCounter("/tmp/worker_stat/counter_data")
+		cdata, err := stream_counter.NewOffsetCounter("/tmp/worker_stat/counter_data")
 		if err != nil {
 			return err
 		}

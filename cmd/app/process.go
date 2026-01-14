@@ -1,9 +1,6 @@
 package main
 
 import (
-	"log"
-	"time"
-
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/pdcgo/worker_stat/metric/metric_daily"
 	"github.com/pdcgo/worker_stat/metric/metric_team"
@@ -36,30 +33,4 @@ func NewProcessHandler(kv stream_core.KeyStore) ProcessHandler {
 	)
 
 	return ProcessHandler(handler)
-}
-
-type PeriodicSnapshot func(t time.Time) error
-
-func NewPeriodicSnapshot(kv stream_core.KeyStore) PeriodicSnapshot {
-
-	// storage, err := stream_utils.NewFirestoreKeyStorage(context.Background(), "experimental")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// snapshotFunc := stream_utils.NewChainSnapshot(
-	// 	storage.SnapshotHandler(),
-	// )
-
-	return func(t time.Time) error {
-		var err error
-
-		// writer := stream_utils.CsvWriter{Data: map[string][][]string{}}
-
-		log.Println("----------------------- snapshot ----------------------------")
-		// err = kv.Snapshot(t, snapshotFunc)
-		log.Println("----------------------- end snapshot ------------------------")
-
-		return err
-	}
 }
