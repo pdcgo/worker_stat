@@ -30,30 +30,6 @@ func NewCalculate(
 		// periodic snapshot
 		go snapshot(context.Background(), time.Minute)
 
-		// err = kv.ResetCounter()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// duration := time.Second * 30
-		// tick := time.NewTimer(time.Minute * 15)
-
-		// go func() {
-		// 	for {
-		// 		select {
-		// 		case <-tick.C:
-		// 			err = snapshot(last)
-		// 			if err != nil {
-		// 				slog.Error(err.Error())
-		// 			}
-		// 			tick.Reset(duration)
-		// 			last = time.Now()
-		// 		case <-context.Background().Done():
-		// 			return
-		// 		}
-		// 	}
-		// }()
-
 		// iterating journal entries
 		var entries []*accounting_core.JournalEntry
 		for {
@@ -65,7 +41,7 @@ func NewCalculate(
 				Joins("join transactions on journal_entries.transaction_id = transactions.id").
 				Preload("Account").
 				Preload("Transaction").
-				Where("transactions.created > ?", "2026-01-05").
+				Where("transactions.created > ?", "2026-01-01").
 				Where("journal_entries.id > ?", pkey).
 				Limit(5000).
 				// Limit(5).
@@ -89,7 +65,6 @@ func NewCalculate(
 			// }
 
 			if len(entries) == 0 {
-
 				time.Sleep(time.Minute)
 			}
 
