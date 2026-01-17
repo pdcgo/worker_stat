@@ -23,17 +23,19 @@ func InitializeWorker() (*Worker, error) {
 	}
 	keyStore := NewKeystore()
 	coreConfig := NewStreamCoreConfig()
-	processHandler := NewProcessHandler(keyStore)
 	statDatabase, err := NewStatDatabase()
 	if err != nil {
 		return nil, err
 	}
+	processHandler := NewProcessHandler(keyStore)
 	periodicSnapshot := NewPeriodicSnapshot(keyStore, statDatabase)
-	calculateBalanceHistory := NewCalculateBalanceHistory(db, keyStore)
-	calculateFunc := NewCalculate(coreConfig, db, processHandler, periodicSnapshot, calculateBalanceHistory, keyStore)
+	client := NewStorageClient()
+	walStream := NewWalStream(client)
+	calculateFunc := NewCalculate(coreConfig, db, statDatabase, processHandler, periodicSnapshot, keyStore, walStream)
 	migrator := NewMigrator(statDatabase)
 	snapshotFunc := NewSnapshotFunc(keyStore, statDatabase, migrator)
 	debugFunc := NewDebugFunc()
-	worker := NewWorker(db, keyStore, calculateFunc, snapshotFunc, debugFunc)
+	deleteStateFunc := NewDeleteStateFunc(statDatabase)
+	worker := NewWorker(db, keyStore, calculateFunc, snapshotFunc, debugFunc, deleteStateFunc)
 	return worker, nil
 }

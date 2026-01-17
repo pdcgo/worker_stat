@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+
 	"github.com/pdcgo/shared/configs"
 	"github.com/pdcgo/shared/db_connect"
 	"github.com/pdcgo/worker_stat/metric/metric_daily"
+	"github.com/pdcgo/worker_stat/metric/metric_shop"
 	"github.com/pdcgo/worker_stat/metric/metric_team"
+	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +36,21 @@ func NewMigrator(statdb *StatDatabase) Migrator {
 			&metric_team.TeamLastBalance{},
 			&metric_daily.DailyTeamAccount{},
 			&metric_daily.DailyTeamToTeamAccount{},
+			&metric_shop.DailyShop{},
+		)
+	}
+}
+
+type DeleteStateFunc cli.ActionFunc
+
+func NewDeleteStateFunc(statdb *StatDatabase) DeleteStateFunc {
+	return func(ctx context.Context, c *cli.Command) error {
+		return statdb.DB.Migrator().DropTable(
+			&metric_team.TeamAccount{},
+			&metric_team.TeamLastBalance{},
+			&metric_daily.DailyTeamAccount{},
+			&metric_daily.DailyTeamToTeamAccount{},
+			&metric_shop.DailyShop{},
 		)
 	}
 }

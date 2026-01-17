@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 
+	"cloud.google.com/go/storage"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_counter"
+	"github.com/wargasipil/stream_engine/stream_storage"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +26,28 @@ func NewKeystore() stream_core.KeyStore {
 	return kv
 }
 
+func NewStorageClient() *storage.Client {
+	client, err := storage.NewClient(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	return client
+}
+
+func NewWalStream(
+	client *storage.Client,
+) *stream_storage.WalStream {
+	wal := stream_storage.NewWalStream(
+		context.Background(),
+		"stream_experiment",
+		"journal_entries",
+		client,
+	)
+
+	return wal
+
+}
+
 type Worker struct {
 	Cli   *cli.Command
 	Close func() error
@@ -35,6 +59,7 @@ func NewWorker(
 	calculate CalculateFunc,
 	snapshot SnapshotFunc,
 	debugfunc DebugFunc,
+	databaseDelete DeleteStateFunc,
 ) *Worker {
 
 	return &Worker{
@@ -54,6 +79,17 @@ func NewWorker(
 					Name:        "debug",
 					Description: "running debug",
 					Action:      cli.ActionFunc(debugfunc),
+				},
+				{
+					Name:        "database",
+					Description: "running database ops",
+					Commands: []*cli.Command{
+						{
+							Name:        "delete",
+							Description: "deleting database",
+							Action:      cli.ActionFunc(databaseDelete),
+						},
+					},
 				},
 			},
 		},

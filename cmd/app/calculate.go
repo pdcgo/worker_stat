@@ -6,10 +6,14 @@ import (
 	"time"
 
 	"github.com/pdcgo/accounting_service/accounting_core"
-	"github.com/pdcgo/shared/pkg/debugtool"
+	"github.com/pdcgo/worker_stat/batch_model"
+	"github.com/pdcgo/worker_stat/metric/metric_shop"
+	"github.com/pdcgo/worker_stat/writer"
 	"github.com/urfave/cli/v3"
 	"github.com/wargasipil/stream_engine/stream_core"
+	"github.com/wargasipil/stream_engine/stream_storage"
 	"github.com/wargasipil/stream_engine/stream_utils"
+	"go.mongodb.org/mongo-driver/bson"
 	"gorm.io/gorm"
 )
 
@@ -18,20 +22,65 @@ type CalculateFunc cli.ActionFunc
 func NewCalculate(
 	cfg *stream_core.CoreConfig,
 	db *gorm.DB,
+	statdb *StatDatabase,
 	process ProcessHandler,
 	snapshot PeriodicSnapshot,
-	calculateBalance CalculateBalanceHistory,
 	kv stream_core.KeyStore,
+	wal *stream_storage.WalStream,
 
 ) CalculateFunc {
+
+	pgwriterNext, pgwriterClose := writer.NewPostgresWriter(context.Background(), statdb.DB, time.Minute)
+	defer pgwriterClose()
+
+	pgwriter := stream_utils.NewChain(pgwriterNext)
+
+	liveHandler := stream_utils.NewChain(
+		EnrichShop(db), // enrich data
+		WriteWall(wal),
+		metric_shop.DailyShopCalculate(kv, pgwriter),
+		stream_utils.ChainNextHandler[*batch_model.BatchJournalEntry](process),
+	)
+
+	backfillHandler := stream_utils.NewChain(
+		metric_shop.DailyShopCalculate(kv, pgwriter),
+		stream_utils.ChainNextHandler[*batch_model.BatchJournalEntry](process),
+	)
+
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
+
+		defer wal.Close()
+
+		// running backfill first
+		err = wal.Replay(func(data []byte) error {
+			var batch batch_model.BatchJournalEntry
+			err := bson.Unmarshal(data, &batch)
+			if err != nil {
+				return err
+			}
+
+			batch.Backfill = true
+
+			err = backfillHandler(&batch)
+			if err != nil {
+				return err
+			}
+			return err
+		})
+
+		if err != nil {
+			return err
+		}
+
+		log.Println("backfill completed..")
 
 		// periodic snapshot
 		go snapshot(context.Background(), time.Minute)
 
 		// iterating journal entries
 		var entries []*accounting_core.JournalEntry
+
 		for {
 
 			pkey := kv.GetUint64("accounting_pkey")
@@ -68,14 +117,13 @@ func NewCalculate(
 				time.Sleep(time.Minute)
 			}
 
-			for _, entry := range entries {
-				err = process(entry)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				kv.PutUint64("accounting_pkey", uint64(entry.ID))
-
+			// for batch and enrich data
+			batch := batch_model.BatchJournalEntry{
+				Entries: entries,
+			}
+			err = liveHandler(&batch)
+			if err != nil {
+				log.Fatal(err)
 			}
 
 			// test
@@ -86,82 +134,54 @@ func NewCalculate(
 	}
 }
 
-type CalculateBalanceHistory func() error
+func EnrichShop(db *gorm.DB) stream_utils.ChainNextHandler[*batch_model.BatchJournalEntry] {
+	return func(next stream_utils.ChainNextFunc[*batch_model.BatchJournalEntry]) stream_utils.ChainNextFunc[*batch_model.BatchJournalEntry] {
+		return func(batch *batch_model.BatchJournalEntry) error {
+			txshops := []*accounting_core.TransactionShop{}
 
-type Balance struct {
-	TeamID      uint    `json:"team_id"`
-	Amount      float64 `json:"amount"`
-	DateAt      string  `json:"date_at"`
-	AccountType string  `json:"account_type"`
-}
+			txids := []uint{}
+			for _, entry := range batch.Entries {
+				txids = append(txids, entry.Transaction.ID)
+			}
 
-func NewCalculateBalanceHistory(
-	db *gorm.DB,
-	kv stream_core.KeyStore,
-) CalculateBalanceHistory {
+			err := db.
+				Model(&accounting_core.TransactionShop{}).
+				Where("transaction_id in ?", txids).
+				Find(&txshops).
+				Error
 
-	balances := []*Balance{}
-	process := stream_utils.NewChain(
-		DailyBalance(kv),
-	)
-
-	return func() error {
-		// ids := []uint{}
-		// mapid := map[uint]bool{}
-
-		// for _, teamID := range teamIDs {
-		// 	if mapid[teamID] {
-		// 		continue
-		// 	}
-		// 	mapid[teamID] = true
-		// 	ids = append(ids, teamID)
-		// }
-
-		err := db.Raw(`
-			SELECT 
-				date(bah.at) as date_at,
-				bah.team_id as team_id,
-				aty.type as account_type,
-				sum(bah.amount) as amount
-			from balance_account_histories bah
-			join expense_accounts ea on ea.id = bah.account_id 
-			join account_types aty on aty.id = ea.account_type_id 
-			where 
-				bah.at > ?
-				-- and bah.team_id in ?
-			group by 
-				date_at, bah.team_id, aty.type
-		`, time.Now().AddDate(0, 0, -7)).
-			Find(&balances).
-			Error
-
-		if err != nil {
-			return err
-		}
-
-		for _, balance := range balances {
-			err = process(balance)
 			if err != nil {
 				return err
 			}
-		}
 
-		return nil
+			batch.Shop = map[uint]*accounting_core.TransactionShop{}
+			for _, txshop := range txshops {
+				batch.Shop[txshop.TransactionID] = txshop
+			}
+
+			return next(batch)
+		}
 	}
 }
 
-func DailyBalance(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*Balance] {
-	return func(next stream_utils.ChainNextFunc[*Balance]) stream_utils.ChainNextFunc[*Balance] {
-		return func(data *Balance) error {
-			// var err error
-			// err = kv.Transaction(func(tx *stream_core.Transaction) error {
-			// 	metric := metric_team.NewMetricTeamLastBalance(tx, data.DateAt)
-			// 	return nil
-			// })
+func WriteWall(wal *stream_storage.WalStream) stream_utils.ChainNextHandler[*batch_model.BatchJournalEntry] {
+	return func(next stream_utils.ChainNextFunc[*batch_model.BatchJournalEntry]) stream_utils.ChainNextFunc[*batch_model.BatchJournalEntry] {
+		return func(batch *batch_model.BatchJournalEntry) error {
+			if batch.Backfill {
+				return next(batch)
+			}
 
-			debugtool.LogJson(data)
+			data, err := bson.Marshal(batch)
+			if err != nil {
+				return err
+			}
 
-			return next(data)
+			err = wal.Append(data)
+			if err != nil {
+				return err
+			}
+
+			return next(batch)
 		}
 	}
 }

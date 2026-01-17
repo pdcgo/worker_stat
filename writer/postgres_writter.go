@@ -17,7 +17,7 @@ type ItemWriter interface {
 
 func NewPostgresWriter(ctx context.Context, db *gorm.DB, timeoutWriter time.Duration) (stream_utils.ChainNextHandler[ItemWriter], func() error) {
 
-	updateMap := map[string]any{}
+	updateMap := map[string]ItemWriter{}
 	keyCount := 0
 
 	timeout := time.NewTimer(timeoutWriter)
@@ -38,7 +38,7 @@ func NewPostgresWriter(ctx context.Context, db *gorm.DB, timeoutWriter time.Dura
 
 		err = db.Transaction(func(tx *gorm.DB) error {
 			for _, item := range updateMap {
-				err = tx.Save(item).Error
+				err = tx.Save(item.Any()).Error
 				if err != nil {
 					return err
 				}
@@ -47,7 +47,7 @@ func NewPostgresWriter(ctx context.Context, db *gorm.DB, timeoutWriter time.Dura
 			return nil
 		})
 
-		updateMap = map[string]any{}
+		updateMap = map[string]ItemWriter{}
 		keyCount = 0
 		slog.Info("update change to postgres completed.")
 		return err
@@ -81,7 +81,7 @@ func NewPostgresWriter(ctx context.Context, db *gorm.DB, timeoutWriter time.Dura
 				if updateMap[item.GetKey()] == nil {
 					lock.Lock()
 					keyCount++
-					updateMap[item.GetKey()] = item.Any()
+					updateMap[item.GetKey()] = item
 					lock.Unlock()
 				}
 
