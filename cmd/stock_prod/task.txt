@@ -1,0 +1,4 @@
+history penjualan internal sku --> 1 agustus - now
+
+sku name, tgl (daily), total order qty , qty (item), 
+
