@@ -1,6 +1,8 @@
 package metric_team
 
 import (
+	"fmt"
+
 	"github.com/pdcgo/accounting_service/accounting_core"
 	"github.com/wargasipil/stream_engine/stream_core"
 	"github.com/wargasipil/stream_engine/stream_utils"
@@ -26,7 +28,7 @@ func TeamAccountFunc(kv stream_core.KeyStore) stream_utils.ChainNextHandler[*acc
 			metric.IncDebit(entry.Debit)
 			metric.IncCredit(entry.Credit)
 
-			coaMetric := NewMetricTeamAccount(kv, uint64(entry.TeamID), acc.Coa.String())
+			coaMetric := NewMetricTeamAccount(kv, uint64(entry.TeamID), fmt.Sprintf("%d", acc.Coa))
 			coaMetric.IncDebit(entry.Debit)
 			coaMetric.IncCredit(entry.Credit)
 

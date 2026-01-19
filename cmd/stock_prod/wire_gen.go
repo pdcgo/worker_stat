@@ -23,7 +23,8 @@ func InitializeWorker() (*Worker, error) {
 	}
 	configStream := NewConfigStream()
 	walStream := NewWalStream()
-	runStreamFunc := NewRunStream(db, configStream, walStream)
+	keyStore := NewKeyStore()
+	runStreamFunc := NewRunStream(db, configStream, walStream, keyStore)
 	worker := NewWorker(runStreamFunc)
 	return worker, nil
 }

@@ -13,6 +13,7 @@ func InitializeWorker() (*Worker, error) {
 		configs.NewProductionConfig,
 		NewConfigStream,
 		NewDatabase,
+		NewKeyStore,
 		NewWalStream,
 		NewRunStream,
 		NewWorker,

@@ -7,6 +7,8 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/urfave/cli/v3"
+	"github.com/wargasipil/stream_engine/stream_core"
+	"github.com/wargasipil/stream_engine/stream_counter"
 	"github.com/wargasipil/stream_engine/stream_storage"
 )
 
@@ -33,6 +35,13 @@ func NewWalStream() *stream_storage.WalStream {
 		"inventory_log",
 		client,
 	)
+}
+
+func NewKeyStore() stream_core.KeyStore {
+	dirPath := "/tmp/stock_counter"
+	os.RemoveAll(dirPath)
+	os.MkdirAll(dirPath, os.ModeDir)
+	return stream_counter.NewKeyCounter(dirPath)
 }
 
 type Worker struct {
