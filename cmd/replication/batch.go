@@ -131,7 +131,7 @@ func NewBatch(
 				day,
 				sum(tx_count) as tx_count,
 				sum(revenue_amount) as revenue_amount
-			from {{.orderHold.TableName}}
+			from {{.orderHoldTable}}
 			group by (team_id, day)
 			`,
 			map[string]batch_compute.Table{
@@ -146,7 +146,7 @@ func NewBatch(
 				team_id,
 				sum(tx_count) as tx_count,
 				sum(revenue_amount) as revenue_amount
-			from {{.orderHold.TableName}}
+			from {{.orderHoldTable}}
 			group by team_id
 			`,
 			map[string]batch_compute.Table{
@@ -159,10 +159,12 @@ func NewBatch(
 			`
 			select
 				*
-			from stats.created_daily_order_holds
+			from {{.orderHoldTable}}
 			limit 10
 			`,
-			map[string]batch_compute.Table{},
+			map[string]batch_compute.Table{
+				"orderHold": createdOrderHold,
+			},
 		)
 
 		err = batch_compute.

@@ -11,7 +11,7 @@ import (
 
 type Table interface {
 	TableName() string
-	CreateQuery() string
+	CreateQuery(schema string) string
 	DependsTable() []Table
 }
 
@@ -33,10 +33,16 @@ func (t *table) TableName() string {
 	return t.tableName
 }
 
-func (t *table) CreateQuery() string {
+func (t *table) CreateQuery(schema string) string {
 	tem := template.Must(template.New(t.tableName).Parse(t.query))
 	var sb strings.Builder
-	err := tem.Execute(&sb, t.dependsTable)
+
+	tableValue := map[string]string{}
+	for key, table := range t.dependsTable {
+		tableValue[key+"Table"] = schema + "." + table.TableName()
+	}
+
+	err := tem.Execute(&sb, tableValue)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +103,7 @@ func (c *Compute) computeTable(ctx context.Context, table Table) error {
 	// execute table
 	c.tableMap[tableName] = table
 
-	query := table.CreateQuery()
+	query := table.CreateQuery(c.schema)
 	if c.schema == "" {
 		query = fmt.Sprintf("create temp table %s as\n %s", tableName, query)
 	} else {
