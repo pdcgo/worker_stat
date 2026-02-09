@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/helpers"
 	"github.com/pdcgo/worker_stat/processing"
 	"github.com/urfave/cli/v3"
@@ -18,18 +19,22 @@ func NewBatch(
 ) BatchFunc {
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
-		transaction := db.Begin(&sql.TxOptions{
-			Isolation: sql.LevelRepeatableRead,
-		})
+
+		transaction := db.
+			Begin(&sql.TxOptions{
+				Isolation: sql.LevelRepeatableRead,
+			})
 
 		defer transaction.Commit()
+
+		schema := "stats"
 
 		calculate := processing.NewChain(
 			// PreparedDailyTable,
 			// DailyShopHoldTable,
 			// DailyTeamHoldTable,
 			OrderCreatedLog,
-			CurrentOrderHold,
+			// CurrentOrderHold,
 			OrderCompletedLog,
 			OrderHoldHistory,
 		)
@@ -72,15 +77,125 @@ func NewBatch(
 
 		helpers.PrintTable(nil, datas)
 
+		// -----------------------------------------------------------------------------------------------------------------------------
+
+		lastTeamHold := batch_compute.NewTableSelect(
+			"last_daily_team_holds",
+			`
+			select 
+				dsh.*
+			from daily_team_holds dsh
+			join (
+				select
+					max(day) as day,
+					team_id
+				from daily_team_holds
+				group by team_id
+			) l on l.day = dsh.day and l.team_id = dsh.team_id
+			`,
+			map[string]batch_compute.Table{},
+		)
+
+		createdOrderHold := batch_compute.NewTableSelect(
+			"created_daily_order_holds",
+			`
+			select 
+				date(o.created_at) as day,
+				o.team_id,
+				o.order_mp_id as shop_id,
+				o.created_by_id as user_id,
+				count(id) as tx_count,
+				sum(o.order_mp_total) as revenue_amount
+				
+			from orders o 
+			where 
+				o.status not in ('completed', 'return_problem', 'return_completed', 'cancel')
+				and o.created_at > '2025-09-09'
+				and o.is_partial != true
+				and o.is_order_fake != true
+			group by (
+				day,
+				team_id,
+				shop_id,
+				user_id
+			)
+			`,
+			map[string]batch_compute.Table{},
+		)
+
+		dailyOrderHold := batch_compute.NewTableSelect(
+			"daily_team_order_holds",
+			`
+			select 
+				team_id,
+				day,
+				sum(tx_count) as tx_count,
+				sum(revenue_amount) as revenue_amount
+			from {{.orderHold.TableName}}
+			group by (team_id, day)
+			`,
+			map[string]batch_compute.Table{
+				"orderHold": createdOrderHold,
+			},
+		)
+
+		team_holds := batch_compute.NewTableSelect(
+			"created_team_order_holds",
+			`
+			select 
+				team_id,
+				sum(tx_count) as tx_count,
+				sum(revenue_amount) as revenue_amount
+			from {{.orderHold.TableName}}
+			group by team_id
+			`,
+			map[string]batch_compute.Table{
+				"orderHold": createdOrderHold,
+			},
+		)
+
+		crossCheckTeamHoldLast := batch_compute.NewTableSelect(
+			"team_hold_amount_err",
+			`
+			select
+				*
+			from stats.created_daily_order_holds
+			limit 10
+			`,
+			map[string]batch_compute.Table{},
+		)
+
+		err = batch_compute.
+			NewCompute(
+				transaction,
+				schema,
+			).
+			Compute(ctx,
+				team_holds,
+				dailyOrderHold,
+				lastTeamHold,
+				crossCheckTeamHoldLast,
+			)
+		if err != nil {
+			return err
+		}
+
 		query = `
 			select 
 				*
-			from created_team_order_holds
+			from stats.daily_team_order_holds
 			where team_id = 31
+			order by day asc
 			`
 
-		raws := []*TeamHold{}
-		// datas := []map[string]any{}
+		// raws := []*TeamHold{}
+		raws := []struct {
+			Day           time.Time
+			TeamID        uint64
+			TxCount       int64
+			RevenueAmount float64
+		}{}
+
 		err = transaction.Raw(query).Find(&raws).Error
 		if err != nil {
 			return err
