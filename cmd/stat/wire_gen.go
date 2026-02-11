@@ -22,6 +22,7 @@ func InitializeAppReplication() (AppReplication, error) {
 		return nil, err
 	}
 	batchFunc := NewBatch(db)
-	appReplication := NewAppReplication(batchFunc)
+	playFunc := NewPlay(db)
+	appReplication := NewAppReplication(batchFunc, playFunc)
 	return appReplication, nil
 }

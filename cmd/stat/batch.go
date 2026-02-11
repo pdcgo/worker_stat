@@ -6,6 +6,8 @@ import (
 	"log"
 
 	"github.com/pdcgo/worker_stat/batch_compute"
+	"github.com/pdcgo/worker_stat/batch_metric/accounting"
+	"github.com/pdcgo/worker_stat/batch_metric/product"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 )
@@ -379,11 +381,16 @@ func NewBatch(
 		err = batch_compute.
 			NewCompute(
 				tx,
-				schema,
+				batch_compute.Schema(schema),
 			).
 			Compute(ctx,
 				crossCheckTeamHoldLast,
 				crossCheckShopHoldLast,
+				product.VariantSold{},
+				product.VariantCurrentStock{},
+				accounting.TeamReceivable{},
+				accounting.ShopReceivable{},
+				accounting.ShopReceivableErr{},
 			)
 		if err != nil {
 			return err

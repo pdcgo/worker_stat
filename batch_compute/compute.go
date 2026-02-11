@@ -9,9 +9,18 @@ import (
 	"gorm.io/gorm"
 )
 
+type Schema string
+
+func (s Schema) GetTableName(table Table) string {
+	if table.Temporary() {
+		return table.TableName()
+	}
+	return string(s) + "." + table.TableName()
+}
+
 type Table interface {
 	TableName() string
-	CreateQuery(schema string) string
+	CreateQuery(schema Schema) string
 	DependsTable() []Table
 	Temporary() bool
 }
@@ -49,13 +58,13 @@ func (t *table) TableName() string {
 	return t.tableName
 }
 
-func (t *table) CreateQuery(schema string) string {
+func (t *table) CreateQuery(schema Schema) string {
 	tem := template.Must(template.New(t.tableName).Parse(t.query))
 	var sb strings.Builder
 
 	tableValue := map[string]string{}
 	for key, table := range t.dependsTable {
-		tableValue[key+"Table"] = schema + "." + table.TableName()
+		tableValue[key+"Table"] = string(schema) + "." + table.TableName()
 	}
 
 	err := tem.Execute(&sb, tableValue)
@@ -76,10 +85,10 @@ func (t *table) DependsTable() []Table {
 type Compute struct {
 	tx       *gorm.DB
 	tableMap map[string]Table
-	schema   string
+	schema   Schema
 }
 
-func NewCompute(tx *gorm.DB, schema string) *Compute {
+func NewCompute(tx *gorm.DB, schema Schema) *Compute {
 	if schema == "public" {
 		panic("schema utama coyyyyyyyyyyy")
 	}
@@ -138,4 +147,12 @@ func (c *Compute) computeTable(ctx context.Context, table Table) error {
 	}
 
 	return nil
+}
+
+func GetTableName(table Table) string {
+	if table.Temporary() {
+		return table.TableName()
+	}
+	return "public." + table.TableName()
+
 }
