@@ -13,6 +13,7 @@ type Table interface {
 	TableName() string
 	CreateQuery(schema string) string
 	DependsTable() []Table
+	Temporary() bool
 }
 
 func NewTableSelect(tableName string, query string, dependsTable map[string]Table) Table {
@@ -23,10 +24,25 @@ func NewTableSelect(tableName string, query string, dependsTable map[string]Tabl
 	}
 }
 
+func NewTemporarySelect(tableName string, query string, dependsTable map[string]Table) Table {
+	return &table{
+		temporary:    true,
+		tableName:    tableName,
+		query:        query,
+		dependsTable: dependsTable,
+	}
+}
+
 type table struct {
+	temporary    bool
 	tableName    string
 	query        string
 	dependsTable map[string]Table
+}
+
+// Temporary implements Table.
+func (t *table) Temporary() bool {
+	return t.temporary
 }
 
 func (t *table) TableName() string {
@@ -104,7 +120,7 @@ func (c *Compute) computeTable(ctx context.Context, table Table) error {
 	c.tableMap[tableName] = table
 
 	query := table.CreateQuery(c.schema)
-	if c.schema == "" {
+	if c.schema == "" || table.Temporary() {
 		query = fmt.Sprintf("create temp table %s as\n %s", tableName, query)
 	} else {
 		dropq := fmt.Sprintf("drop table if exists %s.%s", c.schema, tableName)

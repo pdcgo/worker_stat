@@ -109,7 +109,7 @@ func NewBatch(
 				
 			from orders o 
 			where 
-				o.status not in ('completed', 'return_problem', 'return_completed', 'cancel')
+				o.status not in ('completed', 'return_problem', 'return_completed', 'return', 'problem', 'cancel')
 				and o.created_at > '2025-09-09'
 				and o.is_partial != true
 				and o.is_order_fake != true
@@ -139,7 +139,7 @@ func NewBatch(
 			},
 		)
 
-		team_holds := batch_compute.NewTableSelect(
+		teamHold := batch_compute.NewTableSelect(
 			"created_team_order_holds",
 			`
 			select 
@@ -155,15 +155,20 @@ func NewBatch(
 		)
 
 		crossCheckTeamHoldLast := batch_compute.NewTableSelect(
-			"team_hold_amount_err",
+			"team_hold_err",
 			`
 			select
-				*
-			from {{.orderHoldTable}}
-			limit 10
+				l.team_id,
+				(l.hold_count - c.tx_count) as hold_count_err,
+				(l.hold_amount - c.revenue_amount) as hold_amount_err
+				
+			from {{.lastTeamHoldTable}} l
+			left join {{.teamHoldTable}} c
+				on l.team_id = c.team_id
 			`,
 			map[string]batch_compute.Table{
-				"orderHold": createdOrderHold,
+				"teamHold":     teamHold,
+				"lastTeamHold": lastTeamHold,
 			},
 		)
 
@@ -173,7 +178,6 @@ func NewBatch(
 				schema,
 			).
 			Compute(ctx,
-				team_holds,
 				dailyOrderHold,
 				lastTeamHold,
 				crossCheckTeamHoldLast,
@@ -260,56 +264,6 @@ func OrderHoldHistory(next processing.ChainNextFunc[*gorm.DB]) processing.ChainN
 					partition by th.team_id
 					order by th.day asc) as hold_amount
 			from team_order_holds_log th
-			`,
-		}
-
-		for _, query := range queries {
-			err = tx.Exec(query).Error
-			if err != nil {
-				return err
-			}
-		}
-
-		return next(ctx, tx)
-	}
-}
-
-func CurrentOrderHold(next processing.ChainNextFunc[*gorm.DB]) processing.ChainNextFunc[*gorm.DB] {
-	return func(ctx context.Context, tx *gorm.DB) error {
-		var err error
-
-		queries := []string{
-			`
-			create temp table created_daily_order_holds as
-			select 
-				date(o.created_at) as day,
-				o.team_id,
-				o.order_mp_id as shop_id,
-				o.created_by_id as user_id,
-				count(id) as tx_count,
-				sum(o.order_mp_total) as revenue_amount
-				
-			from orders o 
-			where 
-				o.status not in ('completed', 'return_problem', 'return_completed', 'cancel')
-				and o.created_at > '2025-09-09'
-				and o.is_partial != true
-				and o.is_order_fake != true
-			group by (
-				day,
-				team_id,
-				shop_id,
-				user_id
-			)
-			`,
-			`
-			create temp table created_team_order_holds as
-			select 
-				team_id,
-				sum(tx_count) as tx_count,
-				sum(revenue_amount) as revenue_amount
-			from created_daily_order_holds
-			group by team_id
 			`,
 		}
 
