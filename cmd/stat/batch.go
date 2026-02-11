@@ -188,15 +188,21 @@ func NewBatch(
 		dailyTeamHold := batch_compute.NewTableSelect(
 			"daily_team_holds",
 			`
+			with data as (
+				select 
+					th.*,
+					sum(th.created_count - th.completed_count) over (
+						partition by th.team_id
+						order by th.day asc) as hold_count,
+					sum(th.created_revenue_amount - th.completed_revenue_amount) over (
+						partition by th.team_id
+						order by th.day asc) as hold_amount
+				from {{.teamOrderHoldLogTable}} th
+			)
 			select 
-				th.*,
-				sum(th.created_count - th.completed_count) over (
-					partition by th.team_id
-					order by th.day asc) as hold_count,
-				sum(th.created_revenue_amount - th.completed_revenue_amount) over (
-					partition by th.team_id
-					order by th.day asc) as hold_amount
-			from {{.teamOrderHoldLogTable}} th
+				*,
+				now() as sync_at
+			from data
 			`,
 			map[string]batch_compute.Table{
 				"teamOrderHoldLog": teamOrderHoldLog,
@@ -206,15 +212,21 @@ func NewBatch(
 		dailyShopHold := batch_compute.NewTableSelect(
 			"daily_shop_holds",
 			`
+			with data as (
+				select 
+					th.*,
+					sum(th.created_count - th.completed_count) over (
+						partition by th.shop_id
+						order by th.day asc) as hold_count,
+					sum(th.created_revenue_amount - th.completed_revenue_amount) over (
+						partition by th.shop_id
+						order by th.day asc) as hold_amount
+				from {{.shopOrderHoldLogTable}} th
+			)
 			select 
-				th.*,
-				sum(th.created_count - th.completed_count) over (
-					partition by th.shop_id
-					order by th.day asc) as hold_count,
-				sum(th.created_revenue_amount - th.completed_revenue_amount) over (
-					partition by th.shop_id
-					order by th.day asc) as hold_amount
-			from {{.shopOrderHoldLogTable}} th
+				*,
+				now() as sync_at
+			from data
 			`,
 			map[string]batch_compute.Table{
 				"shopOrderHoldLog": shopOrderHoldLog,
