@@ -5,4 +5,4 @@ RUN go build -o stat ./cmd/stat
 
 FROM alpine:latest
 COPY --from=builder /app/stat /stat
-CMD ["/stat", "batch"]
+CMD ["/stat", "play"]

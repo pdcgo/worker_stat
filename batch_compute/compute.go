@@ -18,6 +18,17 @@ func (s Schema) GetTableName(table Table) string {
 	return string(s) + "." + table.TableName()
 }
 
+type GraphContext struct {
+	Schema Schema
+}
+
+func (g *GraphContext) DependName(table Table) string {
+	if table.Temporary() {
+		return table.TableName()
+	}
+	return string(g.Schema) + "." + table.TableName()
+}
+
 type Table interface {
 	TableName() string
 	CreateQuery(schema Schema) string

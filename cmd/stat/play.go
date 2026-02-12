@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/pdcgo/worker_stat/batch_compute"
-	"github.com/pdcgo/worker_stat/batch_metric/accounting"
+	"github.com/pdcgo/worker_stat/batch_metric/order"
 	"github.com/pdcgo/worker_stat/batch_metric/product"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
@@ -34,9 +34,19 @@ func NewPlay(db *gorm.DB) PlayFunc {
 			Compute(ctx,
 				product.VariantSold{},
 				product.VariantCurrentStock{},
-				accounting.TeamReceivable{},
-				accounting.ShopReceivable{},
-				accounting.ShopReceivableErr{},
+				// accounting.TeamReceivable{},
+				// accounting.ShopReceivable{},
+				// accounting.ShopReceivableErr{},
+				order.UserRevenueCreated{},
+				// untuk shop
+				order.DailyShopHold{},
+				order.ShopHoldState{},
+				order.ShopHoldState{},
+				order.ShopHoldErr{},
+				// untuk team
+				order.DailyTeamHold{},
+				order.TeamHoldState{},
+				order.TeamHoldErr{},
 			)
 		if err != nil {
 			return err
