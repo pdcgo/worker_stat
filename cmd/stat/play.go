@@ -7,6 +7,7 @@ import (
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/batch_metric/order"
 	"github.com/pdcgo/worker_stat/batch_metric/product"
+	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 )
@@ -47,6 +48,8 @@ func NewPlay(db *gorm.DB) PlayFunc {
 				order.DailyTeamHold{},
 				order.TeamHoldState{},
 				order.TeamHoldErr{},
+				// untuk stock
+				stock.DailyTeamRestock{},
 			)
 		if err != nil {
 			return err

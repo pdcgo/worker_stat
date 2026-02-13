@@ -19,14 +19,28 @@ func (s Schema) GetTableName(table Table) string {
 }
 
 type GraphContext struct {
-	Schema Schema
+	Schema    Schema
+	seqMap    map[string]int
+	sequences []Table
 }
 
 func (g *GraphContext) DependName(table Table) string {
+	var tableName string
+
 	if table.Temporary() {
-		return table.TableName()
+		tableName = table.TableName()
+	} else {
+		tableName = string(g.Schema) + "." + table.TableName()
 	}
-	return string(g.Schema) + "." + table.TableName()
+
+	if g.seqMap[tableName] == 0 {
+		g.sequences = append(g.sequences, table)
+		g.seqMap[tableName] += 1
+	} else {
+		g.seqMap[tableName] += 1
+	}
+
+	return tableName
 }
 
 type Table interface {
