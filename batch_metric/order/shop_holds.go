@@ -8,6 +8,11 @@ import (
 
 type ShopCreatedLog struct{}
 
+// BuildQuery implements [batch_compute.Table].
+func (t ShopCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
+
 // CreateQuery implements batch_compute.Table.
 func (t ShopCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
@@ -42,6 +47,11 @@ func (t ShopCreatedLog) Temporary() bool {
 }
 
 type ShopCompletedLog struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (t ShopCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
 
 // CreateQuery implements batch_compute.Table.
 func (t ShopCompletedLog) CreateQuery(schema batch_compute.Schema) string {
@@ -78,6 +88,11 @@ func (t ShopCompletedLog) Temporary() bool {
 }
 
 type DailyShopHold struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (d DailyShopHold) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
 
 // CreateQuery implements batch_compute.Table.
 func (d DailyShopHold) CreateQuery(schema batch_compute.Schema) string {

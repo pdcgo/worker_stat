@@ -8,8 +8,10 @@ import (
 
 type dailyLastShopHold struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (d dailyLastShopHold) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (d dailyLastShopHold) BuildQuery(graph *batch_compute.GraphContext) string {
+	tableName := graph.DependName(DailyShopHold{})
+
 	return fmt.Sprintf(
 		`
 		select 
@@ -23,16 +25,9 @@ func (d dailyLastShopHold) CreateQuery(schema batch_compute.Schema) string {
 			group by shop_id
 		) l on l.day = dsh.day and l.shop_id = dsh.shop_id
 		`,
-		schema.GetTableName(DailyShopHold{}),
-		schema.GetTableName(DailyShopHold{}),
+		tableName,
+		tableName,
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (d dailyLastShopHold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		DailyShopHold{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -47,8 +42,8 @@ func (d dailyLastShopHold) Temporary() bool {
 
 type ShopHoldErr struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (t ShopHoldErr) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (t ShopHoldErr) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 		with data as (
@@ -69,17 +64,9 @@ func (t ShopHoldErr) CreateQuery(schema batch_compute.Schema) string {
 			hold_amount_err != 0 
 			or hold_count_err != 0
 		`,
-		schema.GetTableName(dailyLastShopHold{}),
-		schema.GetTableName(ShopHoldState{}),
+		graph.DependName(dailyLastShopHold{}),
+		graph.DependName(ShopHoldState{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (t ShopHoldErr) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		dailyLastShopHold{},
-		ShopHoldState{},
-	}
 }
 
 // TableName implements batch_compute.Table.

@@ -55,6 +55,11 @@ func (r TeamReceivable) Temporary() bool {
 
 type ShopReceivable struct{}
 
+// BuildQuery implements [batch_compute.Table].
+func (s *ShopReceivable) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
+
 // CreateQuery implements batch_compute.Table.
 func (s ShopReceivable) CreateQuery(schema batch_compute.Schema) string {
 	return `

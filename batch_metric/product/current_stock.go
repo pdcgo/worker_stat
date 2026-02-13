@@ -6,8 +6,8 @@ type VariantOngoingStock struct{}
 
 type VariantCurrentStock struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (v VariantCurrentStock) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (v VariantCurrentStock) BuildQuery(graph *batch_compute.GraphContext) string {
 	return `
 	select
 		s.variant_id,
@@ -27,11 +27,6 @@ func (v VariantCurrentStock) CreateQuery(schema batch_compute.Schema) string {
 		s.warehouse_id
 	)
 	`
-}
-
-// DependsTable implements batch_compute.Table.
-func (v VariantCurrentStock) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{}
 }
 
 // TableName implements batch_compute.Table.

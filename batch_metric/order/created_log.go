@@ -8,8 +8,8 @@ import (
 
 type OrderCreatedLog struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (o *OrderCreatedLog) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (o *OrderCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 	return `
 	select 
 		o.id as order_id,
@@ -26,11 +26,6 @@ func (o *OrderCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 	`
 }
 
-// DependsTable implements batch_compute.Table.
-func (o *OrderCreatedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{}
-}
-
 // TableName implements batch_compute.Table.
 func (o *OrderCreatedLog) TableName() string {
 	return "order_created_log"
@@ -43,8 +38,8 @@ func (o *OrderCreatedLog) Temporary() bool {
 
 type UserRevenueCreated struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (u UserRevenueCreated) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (u UserRevenueCreated) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 	select 
@@ -58,16 +53,8 @@ func (u UserRevenueCreated) CreateQuery(schema batch_compute.Schema) string {
 		oc.user_id
 	)
 	`,
-		schema.GetTableName(&OrderCreatedLog{}),
+		graph.DependName(&OrderCreatedLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (u UserRevenueCreated) DependsTable() []batch_compute.Table {
-
-	return []batch_compute.Table{
-		&OrderCreatedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.

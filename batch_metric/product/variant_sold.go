@@ -9,9 +9,8 @@ import (
 
 type VariantSold struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (v VariantSold) CreateQuery(schema batch_compute.Schema) string {
-
+// BuildQuery implements [batch_compute.Table].
+func (v VariantSold) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(`
 	with vardata as (
 		select 
@@ -45,15 +44,8 @@ func (v VariantSold) CreateQuery(schema batch_compute.Schema) string {
 		) as avg_cost_amount
 	from vardata vs
 	`,
-		schema.GetTableName(&order.OrderItemLog{}),
+		graph.DependName(&order.OrderItemLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (v VariantSold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&order.OrderItemLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.

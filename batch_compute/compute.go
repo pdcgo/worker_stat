@@ -3,11 +3,18 @@ package batch_compute
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"text/template"
 
 	"gorm.io/gorm"
 )
+
+type Table interface {
+	TableName() string
+	BuildQuery(graph *GraphContext) string
+	Temporary() bool
+}
 
 type Schema string
 
@@ -24,31 +31,90 @@ type GraphContext struct {
 	sequences []Table
 }
 
-func (g *GraphContext) DependName(table Table) string {
-	var tableName string
-
-	if table.Temporary() {
-		tableName = table.TableName()
-	} else {
-		tableName = string(g.Schema) + "." + table.TableName()
+func NewGraphContext(schema Schema) *GraphContext {
+	if schema == "public" {
+		panic("schema utama coyyyyyyyyyyy")
 	}
+	return &GraphContext{schema, map[string]int{}, []Table{}}
+}
+
+func (g *GraphContext) DependName(table Table) string {
+
+	tableName := g.Schema.GetTableName(table)
 
 	if g.seqMap[tableName] == 0 {
 		g.sequences = append(g.sequences, table)
-		g.seqMap[tableName] += 1
-	} else {
-		g.seqMap[tableName] += 1
+
 	}
+
+	g.seqMap[tableName] += 1
 
 	return tableName
 }
 
-type Table interface {
-	TableName() string
-	CreateQuery(schema Schema) string
-	DependsTable() []Table
-	Temporary() bool
+func (g *GraphContext) BuildQueries(table Table) []string {
+
+	tableName := table.TableName()
+	queries := []string{}
+
+	query := table.BuildQuery(g)
+	if g.Schema == "" || table.Temporary() {
+		query = fmt.Sprintf("create temp table %s as\n %s", tableName, query)
+		queries = append(queries, query)
+	} else {
+		dropq := fmt.Sprintf("drop table if exists %s.%s", g.Schema, tableName)
+		query = fmt.Sprintf("create table %s.%s as\n %s", g.Schema, tableName, query)
+
+		queries = append(queries, dropq, query)
+	}
+
+	return queries
 }
+
+func (g *GraphContext) Compute(ctx context.Context, tx *gorm.DB, tables ...Table) error {
+	var err error
+
+	computeQueries := []string{}
+
+	for _, table := range tables {
+		tableName := g.Schema.GetTableName(table)
+		if g.seqMap[tableName] != 0 {
+			continue
+		}
+
+		slog.Info("build query", "table_name", tableName)
+
+		computeQueries = append(computeQueries, g.BuildQueries(table)...)
+	}
+
+	for _, table := range g.sequences {
+		slog.Info("compute dependent",
+			"table_name", g.Schema.GetTableName(table),
+			"temporary_table", table.Temporary(),
+			"level", g.seqMap[g.Schema.GetTableName(table)],
+		)
+
+		queries := g.BuildQueries(table)
+		for _, query := range queries {
+			err = tx.Exec(query).Error
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, query := range computeQueries {
+		err = tx.Exec(query).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+
+}
+
+// ------------------------- konsep lama -----------------------------------
 
 func NewTableSelect(tableName string, query string, dependsTable map[string]Table) Table {
 	return &table{
@@ -72,6 +138,11 @@ type table struct {
 	tableName    string
 	query        string
 	dependsTable map[string]Table
+}
+
+// BuildQuery implements [Table].
+func (t *table) BuildQuery(graph *GraphContext) string {
+	panic("unimplemented")
 }
 
 // Temporary implements Table.
@@ -141,37 +212,37 @@ func (c *Compute) computeTable(ctx context.Context, table Table) error {
 	}
 
 	// executing depend first
-	depends := table.DependsTable()
-	for _, depend := range depends {
-		err = c.computeTable(ctx, depend)
-		if err != nil {
-			return err
-		}
+	// depends := table.DependsTable()
+	// for _, depend := range depends {
+	// 	err = c.computeTable(ctx, depend)
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-	}
+	// }
 
 	// execute table
-	c.tableMap[tableName] = table
+	// c.tableMap[tableName] = table
 
-	query := table.CreateQuery(c.schema)
-	if c.schema == "" || table.Temporary() {
-		query = fmt.Sprintf("create temp table %s as\n %s", tableName, query)
-	} else {
-		dropq := fmt.Sprintf("drop table if exists %s.%s", c.schema, tableName)
-		err = c.tx.Exec(dropq).Error
-		if err != nil {
-			return err
-		}
+	// query := table.CreateQuery(c.schema)
+	// if c.schema == "" || table.Temporary() {
+	// 	query = fmt.Sprintf("create temp table %s as\n %s", tableName, query)
+	// } else {
+	// 	dropq := fmt.Sprintf("drop table if exists %s.%s", c.schema, tableName)
+	// 	err = c.tx.Exec(dropq).Error
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		query = fmt.Sprintf("create table %s.%s as\n %s", c.schema, tableName, query)
-	}
+	// 	query = fmt.Sprintf("create table %s.%s as\n %s", c.schema, tableName, query)
+	// }
 
-	err = c.tx.Exec(query).Error
-	if err != nil {
-		return err
-	}
+	// err = c.tx.Exec(query).Error
+	// if err != nil {
+	// 	return err
+	// }
 
-	return nil
+	return err
 }
 
 func GetTableName(table Table) string {

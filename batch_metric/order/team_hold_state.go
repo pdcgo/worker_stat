@@ -8,8 +8,8 @@ import (
 
 type TeamHoldState struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (t TeamHoldState) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (t TeamHoldState) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 	select 
@@ -19,15 +19,8 @@ func (t TeamHoldState) CreateQuery(schema batch_compute.Schema) string {
 	from %s coh
 	group by coh.team_id
 	`,
-		schema.GetTableName(CurrentOrderHold{}),
+		graph.DependName(CurrentOrderHold{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (t TeamHoldState) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		CurrentOrderHold{},
-	}
 }
 
 // TableName implements batch_compute.Table.

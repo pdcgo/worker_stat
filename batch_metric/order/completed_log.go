@@ -4,6 +4,11 @@ import "github.com/pdcgo/worker_stat/batch_compute"
 
 type OrderCompletedLog struct{}
 
+// BuildQuery implements [batch_compute.Table].
+func (o OrderCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
+
 // CreateQuery implements batch_compute.Table.
 func (o OrderCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 	return `

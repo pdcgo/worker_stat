@@ -10,16 +10,10 @@ import (
 type AppReplication *cli.Command
 
 func NewAppReplication(
-	batch BatchFunc,
 	play PlayFunc,
 ) AppReplication {
 	return &cli.Command{
 		Commands: []*cli.Command{
-			{
-				Name:        "batch",
-				Description: "batch processing",
-				Action:      cli.ActionFunc(batch),
-			},
 			{
 				Name:        "play",
 				Description: "batch processing playground",

@@ -4,9 +4,8 @@ import "github.com/pdcgo/worker_stat/batch_compute"
 
 type OrderItemLog struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (o *OrderItemLog) CreateQuery(schema batch_compute.Schema) string {
-
+// BuildQuery implements [batch_compute.Table].
+func (o *OrderItemLog) BuildQuery(graph *batch_compute.GraphContext) string {
 	return `
 	select 
 		oi.order_id,	
@@ -32,11 +31,6 @@ func (o *OrderItemLog) CreateQuery(schema batch_compute.Schema) string {
 		and o.status != 'cancel'
 	
 	`
-}
-
-// DependsTable implements batch_compute.Table.
-func (o *OrderItemLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{}
 }
 
 // TableName implements batch_compute.Table.

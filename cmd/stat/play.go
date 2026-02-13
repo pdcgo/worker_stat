@@ -26,6 +26,17 @@ func NewPlay(db *gorm.DB) PlayFunc {
 		defer tx.Commit()
 
 		schema := "stats"
+		graph := batch_compute.NewGraphContext(batch_compute.Schema(schema))
+
+		graph.Compute(ctx, tx,
+			product.VariantSold{},
+			product.VariantCurrentStock{},
+			order.UserRevenueCreated{},
+
+			order.TeamHoldErr{},
+			order.ShopHoldErr{},
+			stock.DailyTeamRestock{},
+		)
 
 		err = batch_compute.
 			NewCompute(
@@ -42,7 +53,6 @@ func NewPlay(db *gorm.DB) PlayFunc {
 				// untuk shop
 				order.DailyShopHold{},
 				order.ShopHoldState{},
-				order.ShopHoldState{},
 				order.ShopHoldErr{},
 				// untuk team
 				order.DailyTeamHold{},
@@ -52,6 +62,7 @@ func NewPlay(db *gorm.DB) PlayFunc {
 				stock.DailyTeamRestock{},
 			)
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 		return nil

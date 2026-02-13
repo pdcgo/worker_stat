@@ -13,7 +13,6 @@ func InitializeAppReplication() (AppReplication, error) {
 	wire.Build(
 		configs.NewProductionConfig,
 		NewProductionDatabase,
-		NewBatch,
 		NewPlay,
 		NewAppReplication,
 	)

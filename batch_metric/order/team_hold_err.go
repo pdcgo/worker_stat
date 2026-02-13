@@ -8,8 +8,11 @@ import (
 
 type dailyLastTeamHold struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (d dailyLastTeamHold) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (d dailyLastTeamHold) BuildQuery(graph *batch_compute.GraphContext) string {
+
+	tableName := graph.DependName(DailyTeamHold{})
+
 	return fmt.Sprintf(
 		`
 		select 
@@ -23,16 +26,9 @@ func (d dailyLastTeamHold) CreateQuery(schema batch_compute.Schema) string {
 			group by team_id
 		) l on l.day = dsh.day and l.team_id = dsh.team_id
 		`,
-		schema.GetTableName(DailyTeamHold{}),
-		schema.GetTableName(DailyTeamHold{}),
+		tableName,
+		tableName,
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (d dailyLastTeamHold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		DailyTeamHold{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -47,8 +43,8 @@ func (d dailyLastTeamHold) Temporary() bool {
 
 type TeamHoldErr struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (t TeamHoldErr) CreateQuery(schema batch_compute.Schema) string {
+// BuildQuery implements [batch_compute.Table].
+func (t TeamHoldErr) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 		with data as (
@@ -69,17 +65,9 @@ func (t TeamHoldErr) CreateQuery(schema batch_compute.Schema) string {
 			hold_amount_err != 0 
 			or hold_count_err != 0
 		`,
-		schema.GetTableName(dailyLastTeamHold{}),
-		schema.GetTableName(TeamHoldState{}),
+		graph.DependName(dailyLastTeamHold{}),
+		graph.DependName(TeamHoldState{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (t TeamHoldErr) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		dailyLastTeamHold{},
-		TeamHoldState{},
-	}
 }
 
 // TableName implements batch_compute.Table.

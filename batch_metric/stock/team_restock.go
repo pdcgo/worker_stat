@@ -47,20 +47,11 @@ func (d DailyTeamRestockArrived) Temporary() bool {
 
 type DailyTeamRestock struct{}
 
-// CreateQuery implements batch_compute.Table.
-func (d DailyTeamRestock) CreateQuery(schema batch_compute.Schema) string {
-
+// BuildQuery implements [batch_compute.Table].
+func (d DailyTeamRestock) BuildQuery(graph *batch_compute.GraphContext) string {
 	return `
 		select '1'
 	`
-}
-
-// DependsTable implements batch_compute.Table.
-func (d DailyTeamRestock) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&DailyTeamRestockArrived{},
-		&RestockCreatedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.

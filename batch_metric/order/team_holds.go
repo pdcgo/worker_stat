@@ -8,6 +8,11 @@ import (
 
 type TeamCreatedLog struct{}
 
+// BuildQuery implements [batch_compute.Table].
+func (t TeamCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
+
 // CreateQuery implements batch_compute.Table.
 func (t TeamCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
@@ -42,6 +47,11 @@ func (t TeamCreatedLog) Temporary() bool {
 }
 
 type TeamCompletedLog struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (t TeamCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
 
 // CreateQuery implements batch_compute.Table.
 func (t TeamCompletedLog) CreateQuery(schema batch_compute.Schema) string {
@@ -78,6 +88,11 @@ func (t TeamCompletedLog) Temporary() bool {
 }
 
 type DailyTeamHold struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (d DailyTeamHold) BuildQuery(graph *batch_compute.GraphContext) string {
+	panic("unimplemented")
+}
 
 // CreateQuery implements batch_compute.Table.
 func (d DailyTeamHold) CreateQuery(schema batch_compute.Schema) string {
