@@ -6,11 +6,6 @@ type CurrentOrderHold struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (c CurrentOrderHold) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (c CurrentOrderHold) CreateQuery(schema batch_compute.Schema) string {
 	return `
 	select 
 		date(o.created_at) as day,
@@ -33,11 +28,6 @@ func (c CurrentOrderHold) CreateQuery(schema batch_compute.Schema) string {
 		user_id
 	)
 	`
-}
-
-// DependsTable implements batch_compute.Table.
-func (c CurrentOrderHold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{}
 }
 
 // TableName implements batch_compute.Table.

@@ -6,11 +6,6 @@ type OrderCompletedLog struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (o OrderCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (o OrderCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 	return `
 	with completed as (
 		select 
@@ -37,11 +32,6 @@ func (o OrderCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 	from completed com
 	join orders o on o.id = com.order_id
 	`
-}
-
-// DependsTable implements batch_compute.Table.
-func (o OrderCompletedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{}
 }
 
 // TableName implements batch_compute.Table.

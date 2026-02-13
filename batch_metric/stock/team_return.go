@@ -6,10 +6,10 @@ import (
 	"github.com/pdcgo/worker_stat/batch_compute"
 )
 
-type DailyTeamRestockArrived struct{}
+type DailyTeamReturnArrived struct{}
 
 // BuildQuery implements [batch_compute.Table].
-func (d DailyTeamRestockArrived) BuildQuery(graph *batch_compute.GraphContext) string {
+func (d DailyTeamReturnArrived) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -27,24 +27,24 @@ func (d DailyTeamRestockArrived) BuildQuery(graph *batch_compute.GraphContext) s
 			team_id
 		)
 		`,
-		graph.DependName(RestockArrivedLog{}),
+		graph.DependName(ReturnArrivedLog{}),
 	)
 }
 
 // TableName implements batch_compute.Table.
-func (d DailyTeamRestockArrived) TableName() string {
-	return "daily_team_restock_arrived"
+func (d DailyTeamReturnArrived) TableName() string {
+	return "daily_team_return_arrived"
 }
 
 // Temporary implements batch_compute.Table.
-func (d DailyTeamRestockArrived) Temporary() bool {
+func (d DailyTeamReturnArrived) Temporary() bool {
 	return true
 }
 
-type DailyTeamRestockCreated struct{}
+type DailyTeamReturnCreated struct{}
 
 // BuildQuery implements [batch_compute.Table].
-func (d DailyTeamRestockCreated) BuildQuery(graph *batch_compute.GraphContext) string {
+func (d DailyTeamReturnCreated) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -62,24 +62,24 @@ func (d DailyTeamRestockCreated) BuildQuery(graph *batch_compute.GraphContext) s
 			team_id
 		)
 		`,
-		graph.DependName(RestockCreatedLog{}),
+		graph.DependName(ReturnCreatedLog{}),
 	)
 }
 
 // TableName implements [batch_compute.Table].
-func (d DailyTeamRestockCreated) TableName() string {
-	return "daily_team_restock_created"
+func (d DailyTeamReturnCreated) TableName() string {
+	return "daily_team_return_created"
 }
 
 // Temporary implements [batch_compute.Table].
-func (d DailyTeamRestockCreated) Temporary() bool {
+func (d DailyTeamReturnCreated) Temporary() bool {
 	return true
 }
 
-type DailyTeamRestock struct{}
+type DailyTeamReturn struct{}
 
 // BuildQuery implements [batch_compute.Table].
-func (d DailyTeamRestock) BuildQuery(graph *batch_compute.GraphContext) string {
+func (d DailyTeamReturn) BuildQuery(graph *batch_compute.GraphContext) string {
 
 	return fmt.Sprintf(
 		`
@@ -132,17 +132,17 @@ func (d DailyTeamRestock) BuildQuery(graph *batch_compute.GraphContext) string {
 			now() as sync_at
 		from data
 		`,
-		graph.DependName(DailyTeamRestockCreated{}),
-		graph.DependName(DailyTeamRestockArrived{}),
+		graph.DependName(DailyTeamReturnCreated{}),
+		graph.DependName(DailyTeamReturnArrived{}),
 	)
 }
 
 // TableName implements batch_compute.Table.
-func (d DailyTeamRestock) TableName() string {
-	return "daily_team_restock"
+func (d DailyTeamReturn) TableName() string {
+	return "daily_team_return"
 }
 
 // Temporary implements batch_compute.Table.
-func (d DailyTeamRestock) Temporary() bool {
+func (d DailyTeamReturn) Temporary() bool {
 	return false
 }

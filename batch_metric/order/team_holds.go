@@ -10,11 +10,6 @@ type TeamCreatedLog struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t TeamCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (t TeamCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -25,15 +20,8 @@ func (t TeamCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 		from %s
 		group by (team_id, day)
 		`,
-		schema.GetTableName(&OrderCreatedLog{}),
+		graph.DependName(&OrderCreatedLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (t TeamCreatedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&OrderCreatedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -50,11 +38,6 @@ type TeamCompletedLog struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t TeamCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (t TeamCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -65,16 +48,8 @@ func (t TeamCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 		from %s
 		group by (team_id, day)
 		`,
-		schema.GetTableName(OrderCompletedLog{}),
+		graph.DependName(OrderCompletedLog{}),
 	)
-
-}
-
-// DependsTable implements batch_compute.Table.
-func (t TeamCompletedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&OrderCompletedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -91,11 +66,6 @@ type DailyTeamHold struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (d DailyTeamHold) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (d DailyTeamHold) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		with stage as (
@@ -129,17 +99,9 @@ func (d DailyTeamHold) CreateQuery(schema batch_compute.Schema) string {
 			now() as sync_at
 		from data
 		`,
-		schema.GetTableName(TeamCreatedLog{}),
-		schema.GetTableName(TeamCompletedLog{}),
+		graph.DependName(TeamCreatedLog{}),
+		graph.DependName(TeamCompletedLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (d DailyTeamHold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		TeamCreatedLog{},
-		TeamCompletedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.

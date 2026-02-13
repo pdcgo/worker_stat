@@ -25,46 +25,38 @@ func NewPlay(db *gorm.DB) PlayFunc {
 
 		defer tx.Commit()
 
-		schema := "stats"
-		graph := batch_compute.NewGraphContext(batch_compute.Schema(schema))
+		// schema := "test"
+		// disableTemporary := true
 
-		graph.Compute(ctx, tx,
+		schema := "stats"
+		disableTemporary := false
+
+		graph := batch_compute.NewGraphContext(schema, disableTemporary)
+
+		// err = graph.Compute(ctx, tx,
+		// 	stock.DailyTeamRestock{},
+		// 	stock.DailyTeamReturn{},
+		// 	stock.TeamRestockState{},
+		// )
+
+		err = graph.Compute(ctx, tx,
+			stock.DailyTeamRestock{},
+			stock.TeamRestockState{},
+			stock.DailyTeamReturn{},
+
 			product.VariantSold{},
 			product.VariantCurrentStock{},
-			order.UserRevenueCreated{},
 
+			order.UserRevenueCreated{},
 			order.TeamHoldErr{},
 			order.ShopHoldErr{},
-			stock.DailyTeamRestock{},
 		)
 
-		err = batch_compute.
-			NewCompute(
-				tx,
-				batch_compute.Schema(schema),
-			).
-			Compute(ctx,
-				product.VariantSold{},
-				product.VariantCurrentStock{},
-				// accounting.TeamReceivable{},
-				// accounting.ShopReceivable{},
-				// accounting.ShopReceivableErr{},
-				order.UserRevenueCreated{},
-				// untuk shop
-				order.DailyShopHold{},
-				order.ShopHoldState{},
-				order.ShopHoldErr{},
-				// untuk team
-				order.DailyTeamHold{},
-				order.TeamHoldState{},
-				order.TeamHoldErr{},
-				// untuk stock
-				stock.DailyTeamRestock{},
-			)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+
 		return nil
 	}
 }

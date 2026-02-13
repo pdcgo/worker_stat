@@ -10,11 +10,6 @@ type ShopCreatedLog struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t ShopCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (t ShopCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -25,15 +20,8 @@ func (t ShopCreatedLog) CreateQuery(schema batch_compute.Schema) string {
 		from %s
 		group by (shop_id, day)
 		`,
-		schema.GetTableName(&OrderCreatedLog{}),
+		graph.DependName(&OrderCreatedLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (t ShopCreatedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&OrderCreatedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -50,11 +38,6 @@ type ShopCompletedLog struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t ShopCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (t ShopCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		select 
@@ -65,16 +48,8 @@ func (t ShopCompletedLog) CreateQuery(schema batch_compute.Schema) string {
 		from %s
 		group by (shop_id, day)
 		`,
-		schema.GetTableName(OrderCompletedLog{}),
+		graph.DependName(OrderCompletedLog{}),
 	)
-
-}
-
-// DependsTable implements batch_compute.Table.
-func (t ShopCompletedLog) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		&OrderCompletedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.
@@ -91,11 +66,6 @@ type DailyShopHold struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (d DailyShopHold) BuildQuery(graph *batch_compute.GraphContext) string {
-	panic("unimplemented")
-}
-
-// CreateQuery implements batch_compute.Table.
-func (d DailyShopHold) CreateQuery(schema batch_compute.Schema) string {
 	return fmt.Sprintf(
 		`
 		with stage as (
@@ -129,17 +99,9 @@ func (d DailyShopHold) CreateQuery(schema batch_compute.Schema) string {
 			now() as sync_at
 		from data
 		`,
-		schema.GetTableName(ShopCreatedLog{}),
-		schema.GetTableName(ShopCompletedLog{}),
+		graph.DependName(ShopCreatedLog{}),
+		graph.DependName(ShopCompletedLog{}),
 	)
-}
-
-// DependsTable implements batch_compute.Table.
-func (d DailyShopHold) DependsTable() []batch_compute.Table {
-	return []batch_compute.Table{
-		ShopCreatedLog{},
-		ShopCompletedLog{},
-	}
 }
 
 // TableName implements batch_compute.Table.
