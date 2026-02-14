@@ -5,6 +5,8 @@ import (
 	"database/sql"
 
 	"github.com/pdcgo/worker_stat/batch_compute"
+	"github.com/pdcgo/worker_stat/batch_metric/order"
+	"github.com/pdcgo/worker_stat/batch_metric/product"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
@@ -23,36 +25,37 @@ func NewPlay(db *gorm.DB) PlayFunc {
 
 		defer tx.Commit()
 
-		schema := "test"
-		disableTemporary := true
+		// schema := "test"
+		// disableTemporary := true
 
-		// schema := "stats"
-		// disableTemporary := false
+		schema := "stats"
+		disableTemporary := false
 
 		graph := batch_compute.NewGraphContext(schema, disableTemporary)
 
-		err = graph.Compute(ctx, tx,
-
-			stock.DailyTeamAdjustmentCreated{},
-			stock.TeamDailyStock{},
-			stock.TeamStockErr{},
-		)
-
 		// err = graph.Compute(ctx, tx,
-		// 	stock.DailyTeamOrderSpent{},
-		// 	stock.DailyTeamBrokenCreated{},
 
-		// 	stock.DailyTeamRestock{},
-		// 	stock.TeamRestockState{},
-		// 	stock.DailyTeamReturn{},
-
-		// 	product.VariantSold{},
-		// 	product.VariantCurrentStock{},
-
-		// 	order.UserRevenueCreated{},
-		// 	order.TeamHoldErr{},
-		// 	order.ShopHoldErr{},
+		// 	stock.DailyTeamAdjustmentCreated{},
+		// 	stock.TeamDailyStock{},
 		// )
+
+		err = graph.Compute(ctx, tx,
+			stock.TeamStockErr{},
+
+			stock.DailyTeamOrderSpent{},
+			stock.DailyTeamBrokenCreated{},
+
+			stock.DailyTeamRestock{},
+			stock.TeamRestockState{},
+			stock.DailyTeamReturn{},
+
+			product.VariantSold{},
+			product.VariantCurrentStock{},
+
+			order.UserRevenueCreated{},
+			order.TeamHoldErr{},
+			order.ShopHoldErr{},
+		)
 
 		if err != nil {
 			tx.Rollback()
