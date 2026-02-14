@@ -67,6 +67,7 @@ func (r ReturnArrivedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 			it.created > '2025-09-09'
 			and it.type = 'return'
 			and it.status != 'cancel'
+			and it.arrived is not null
 		`,
 		graph.DependName(InvItemLog{}),
 	)

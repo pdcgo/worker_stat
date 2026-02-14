@@ -87,10 +87,12 @@ func (r RestockArrivedLog) BuildQuery(graph *batch_compute.GraphContext) string 
 		from public.inv_transactions it
 		join public.restock_costs rc on rc.inv_transaction_id = it.id
 		left join %s itc on itc.tx_id = it.id
-		where 
+		where
+			
 			it.created > '2025-09-09'
 			and it.type = 'restock'
 			and it.status != 'cancel'
+			and it.arrived is not null
 		`,
 		graph.DependName(InvItemLog{}),
 	)
