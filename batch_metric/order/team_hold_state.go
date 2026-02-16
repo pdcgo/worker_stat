@@ -19,7 +19,7 @@ func (t TeamHoldState) BuildQuery(graph *batch_compute.GraphContext) string {
 	from %s coh
 	group by coh.team_id
 	`,
-		graph.DependName(CurrentOrderHold{}),
+		graph.DependName(t, CurrentOrderHold{}),
 	)
 }
 

@@ -10,7 +10,7 @@ type dailyLastShopHold struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (d dailyLastShopHold) BuildQuery(graph *batch_compute.GraphContext) string {
-	tableName := graph.DependName(DailyShopHold{})
+	tableName := graph.DependName(d, DailyShopHold{})
 
 	return fmt.Sprintf(
 		`
@@ -64,8 +64,8 @@ func (t ShopHoldErr) BuildQuery(graph *batch_compute.GraphContext) string {
 			hold_amount_err != 0 
 			or hold_count_err != 0
 		`,
-		graph.DependName(dailyLastShopHold{}),
-		graph.DependName(ShopHoldState{}),
+		graph.DependName(t, dailyLastShopHold{}),
+		graph.DependName(t, ShopHoldState{}),
 	)
 }
 

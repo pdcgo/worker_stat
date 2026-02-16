@@ -54,7 +54,7 @@ func (r RestockCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string 
 			and it.type = 'restock'
 			and it.status != 'cancel'
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(r, InvItemLog{}),
 	)
 }
 
@@ -94,7 +94,7 @@ func (r RestockArrivedLog) BuildQuery(graph *batch_compute.GraphContext) string 
 			and it.status != 'cancel'
 			and it.arrived is not null
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(r, InvItemLog{}),
 	)
 }
 

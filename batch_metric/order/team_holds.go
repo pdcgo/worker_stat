@@ -20,7 +20,7 @@ func (t TeamCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 		from %s
 		group by (team_id, day)
 		`,
-		graph.DependName(&OrderCreatedLog{}),
+		graph.DependName(t, &OrderCreatedLog{}),
 	)
 }
 
@@ -48,7 +48,7 @@ func (t TeamCompletedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 		from %s
 		group by (team_id, day)
 		`,
-		graph.DependName(OrderCompletedLog{}),
+		graph.DependName(t, OrderCompletedLog{}),
 	)
 }
 
@@ -99,8 +99,8 @@ func (d DailyTeamHold) BuildQuery(graph *batch_compute.GraphContext) string {
 			now() as sync_at
 		from data
 		`,
-		graph.DependName(TeamCreatedLog{}),
-		graph.DependName(TeamCompletedLog{}),
+		graph.DependName(d, TeamCreatedLog{}),
+		graph.DependName(d, TeamCompletedLog{}),
 	)
 }
 

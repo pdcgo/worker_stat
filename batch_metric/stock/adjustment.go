@@ -35,7 +35,7 @@ func (a AdjustmentCreatedLog) BuildQuery(graph *batch_compute.GraphContext) stri
 			and it.type in ('adj_in', 'adj_out')
 			and it.status != 'cancel'
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(a, InvItemLog{}),
 	)
 }
 

@@ -44,7 +44,7 @@ func (v VariantSold) BuildQuery(graph *batch_compute.GraphContext) string {
 		) as avg_cost_amount
 	from vardata vs
 	`,
-		graph.DependName(&order.OrderItemLog{}),
+		graph.DependName(v, &order.OrderItemLog{}),
 	)
 }
 

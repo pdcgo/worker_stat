@@ -19,10 +19,7 @@ func (t TeamReadyStockState) BuildQuery(graph *batch_compute.GraphContext) strin
 			
 			(
 				ih.price + coalesce(ih.ext_price, 0)
-			) as price,
-			
-			(ih.count * ih.price * -1) as total
-			
+			) as price
 
 		from public.invertory_histories ih 
 		where 
@@ -32,7 +29,7 @@ func (t TeamReadyStockState) BuildQuery(graph *batch_compute.GraphContext) strin
 	select
 		d.team_id,
 		sum(d.count) as count,
-		sum(d.total) as amount
+		sum(d.count * d.price) as amount
 	from d
 	group by d.team_id
 	
@@ -53,7 +50,7 @@ type TeamStockErr struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t TeamStockErr) BuildQuery(graph *batch_compute.GraphContext) string {
-	dsName := graph.DependName(TeamDailyStock{})
+	dsName := graph.DependName(t, TeamDailyStock{})
 	return fmt.Sprintf(
 		`
 		with l as (
@@ -85,7 +82,7 @@ func (t TeamStockErr) BuildQuery(graph *batch_compute.GraphContext) string {
 		`,
 		dsName,
 		dsName,
-		graph.DependName(TeamReadyStockState{}),
+		graph.DependName(t, TeamReadyStockState{}),
 	)
 }
 

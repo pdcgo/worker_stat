@@ -41,5 +41,5 @@ func (o OrderCompletedLog) TableName() string {
 
 // Temporary implements batch_compute.Table.
 func (o OrderCompletedLog) Temporary() bool {
-	return false
+	return true
 }

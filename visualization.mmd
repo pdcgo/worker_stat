@@ -1,0 +1,13 @@
+stateDiagram-v2
+	inbound_spent_negative--> [*]
+	style inbound_spent_negative fill:#4CAF50
+	sku_ready_stock_err--> [*]
+	style sku_ready_stock_err fill:#4CAF50
+	outbound_history--> inbound_spent
+	inbound_history--> inbound_spent
+	inbound_spent--> inbound_spent_negative
+	style inbound_spent fill:#4CAF50
+	inbound_spent--> sku_ready_stock_err
+	style inbound_spent fill:#4CAF50
+	sku_ready_stock_state--> sku_ready_stock_err
+	style sku_ready_stock_state fill:#4CAF50

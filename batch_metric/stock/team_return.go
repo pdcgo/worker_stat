@@ -27,7 +27,7 @@ func (d DailyTeamReturnArrived) BuildQuery(graph *batch_compute.GraphContext) st
 			team_id
 		)
 		`,
-		graph.DependName(ReturnArrivedLog{}),
+		graph.DependName(d, ReturnArrivedLog{}),
 	)
 }
 
@@ -62,7 +62,7 @@ func (d DailyTeamReturnCreated) BuildQuery(graph *batch_compute.GraphContext) st
 			team_id
 		)
 		`,
-		graph.DependName(ReturnCreatedLog{}),
+		graph.DependName(d, ReturnCreatedLog{}),
 	)
 }
 
@@ -132,8 +132,8 @@ func (d DailyTeamReturn) BuildQuery(graph *batch_compute.GraphContext) string {
 			now() as sync_at
 		from data
 		`,
-		graph.DependName(DailyTeamReturnCreated{}),
-		graph.DependName(DailyTeamReturnArrived{}),
+		graph.DependName(d, DailyTeamReturnCreated{}),
+		graph.DependName(d, DailyTeamReturnArrived{}),
 	)
 }
 

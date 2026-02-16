@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"database/sql"
+	"os"
+	"time"
 
 	"github.com/pdcgo/worker_stat/batch_compute"
-	"github.com/pdcgo/worker_stat/batch_metric/order"
-	"github.com/pdcgo/worker_stat/batch_metric/product"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
@@ -25,42 +25,63 @@ func NewPlay(db *gorm.DB) PlayFunc {
 
 		defer tx.Commit()
 
-		// schema := "test"
-		// disableTemporary := true
+		startDate, err := time.Parse("2006-01-02", "2025-09-09")
 
-		schema := "stats"
-		disableTemporary := false
+		filter := batch_compute.GlobalFilter{
+			StartDate: startDate,
+		}
 
-		graph := batch_compute.NewGraphContext(schema, disableTemporary)
+		schema := "test"
+		disableTemporary := true
 
-		// err = graph.Compute(ctx, tx,
+		// schema := "stats"
+		// disableTemporary := false
 
-		// 	stock.DailyTeamAdjustmentCreated{},
-		// 	stock.TeamDailyStock{},
-		// )
+		graph := batch_compute.NewGraphContext(schema, disableTemporary, &filter)
 
-		err = graph.Compute(ctx, tx,
-			stock.TeamStockErr{},
+		tableToCompute := []batch_compute.Table{
+			stock.InboundSpentNegative{},
+			stock.SkuReadyStockErr{},
+		}
 
-			stock.DailyTeamOrderSpent{},
-			stock.DailyTeamBrokenCreated{},
-
-			stock.DailyTeamRestock{},
-			stock.TeamRestockState{},
-			stock.DailyTeamReturn{},
-
-			product.VariantSold{},
-			product.VariantCurrentStock{},
-
-			order.UserRevenueCreated{},
-			order.TeamHoldErr{},
-			order.ShopHoldErr{},
-		)
-
+		err = graph.Compute(ctx, tx, tableToCompute...)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+
+		graph = batch_compute.NewGraphContext(schema, disableTemporary, &filter)
+		f, err := os.OpenFile("visualization.mmd", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		err = graph.GenerateVisualization(f, tableToCompute...)
+		if err != nil {
+			return err
+		}
+
+		// err = graph.Compute(ctx, tx,
+		// 	stock.InboundSpentNegative{},
+		// )
+
+		// err = graph.Compute(ctx, tx,
+		// 	stock.TeamStockErr{},
+
+		// 	stock.DailyTeamOrderSpent{},
+		// 	stock.DailyTeamBrokenCreated{},
+
+		// 	stock.DailyTeamRestock{},
+		// 	stock.TeamRestockState{},
+		// 	stock.DailyTeamReturn{},
+
+		// 	product.VariantSold{},
+		// 	product.VariantCurrentStock{},
+
+		// 	order.UserRevenueCreated{},
+		// 	order.TeamHoldErr{},
+		// 	order.ShopHoldErr{},
+		// )
 
 		return nil
 	}

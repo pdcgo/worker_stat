@@ -25,7 +25,7 @@ func (d DailyTeamBrokenCreated) BuildQuery(graph *batch_compute.GraphContext) st
 			team_id
 		)
 		`,
-		graph.DependName(BrokenCreatedLog{}),
+		graph.DependName(d, BrokenCreatedLog{}),
 	)
 }
 

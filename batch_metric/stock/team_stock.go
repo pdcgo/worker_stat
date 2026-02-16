@@ -26,8 +26,8 @@ func (t TeamDailyOutbound) BuildQuery(graph *batch_compute.GraphContext) string 
 			bc.team_id = os.team_id
 			and bc.day = os.day 
 		`,
-		graph.DependName(DailyTeamOrderSpent{}),
-		graph.DependName(DailyTeamBrokenCreated{}),
+		graph.DependName(t, DailyTeamOrderSpent{}),
+		graph.DependName(t, DailyTeamBrokenCreated{}),
 	)
 }
 
@@ -64,8 +64,8 @@ func (t TeamDailyInbound) BuildQuery(graph *batch_compute.GraphContext) string {
 			ret.team_id = re.team_id
 			and ret.day = re.day 
 		`,
-		graph.DependName(DailyTeamRestockArrived{}),
-		graph.DependName(DailyTeamReturnArrived{}),
+		graph.DependName(t, DailyTeamRestockArrived{}),
+		graph.DependName(t, DailyTeamReturnArrived{}),
 	)
 }
 
@@ -128,9 +128,9 @@ func (t TeamDailyStock) BuildQuery(graph *batch_compute.GraphContext) string {
 			
 		from d2 d
 		`,
-		graph.DependName(TeamDailyInbound{}),
-		graph.DependName(TeamDailyOutbound{}),
-		graph.DependName(DailyTeamAdjustmentCreated{}),
+		graph.DependName(t, TeamDailyInbound{}),
+		graph.DependName(t, TeamDailyOutbound{}),
+		graph.DependName(t, DailyTeamAdjustmentCreated{}),
 	)
 }
 

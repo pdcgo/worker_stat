@@ -19,7 +19,7 @@ func (s ShopHoldState) BuildQuery(graph *batch_compute.GraphContext) string {
 	from %s coh
 	group by coh.shop_id
 	`,
-		graph.DependName(CurrentOrderHold{}),
+		graph.DependName(s, CurrentOrderHold{}),
 	)
 }
 

@@ -31,7 +31,7 @@ func (t RestockState) BuildQuery(graph *batch_compute.GraphContext) string {
 			and it.status != 'cancel'
 			and it.arrived is null
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(t, InvItemLog{}),
 	)
 }
 
@@ -59,7 +59,7 @@ func (t TeamRestockState) BuildQuery(graph *batch_compute.GraphContext) string {
 		from %s rs 
 		group by rs.team_id
 		`,
-		graph.DependName(RestockState{}),
+		graph.DependName(t, RestockState{}),
 	)
 }
 

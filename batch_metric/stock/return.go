@@ -30,7 +30,7 @@ func (r ReturnCreatedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 			and it.type = 'return'
 			and it.status != 'cancel'
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(r, InvItemLog{}),
 	)
 }
 
@@ -69,7 +69,7 @@ func (r ReturnArrivedLog) BuildQuery(graph *batch_compute.GraphContext) string {
 			and it.status != 'cancel'
 			and it.arrived is not null
 		`,
-		graph.DependName(InvItemLog{}),
+		graph.DependName(r, InvItemLog{}),
 	)
 }
 

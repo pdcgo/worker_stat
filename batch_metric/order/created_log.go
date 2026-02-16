@@ -53,7 +53,7 @@ func (u UserRevenueCreated) BuildQuery(graph *batch_compute.GraphContext) string
 		oc.user_id
 	)
 	`,
-		graph.DependName(&OrderCreatedLog{}),
+		graph.DependName(u, &OrderCreatedLog{}),
 	)
 }
 

@@ -36,7 +36,7 @@ func (d DailyTeamOrderSpent) BuildQuery(graph *batch_compute.GraphContext) strin
 			cl.product_team_id
 		)
 		`,
-		graph.DependName(CreatedItemLog{}),
+		graph.DependName(d, CreatedItemLog{}),
 	)
 }
 
