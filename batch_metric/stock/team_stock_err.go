@@ -10,30 +10,19 @@ type TeamReadyStockState struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (t TeamReadyStockState) BuildQuery(graph *batch_compute.GraphContext) string {
-	return `
+	return fmt.Sprintf(
+		`
+		select 
+			s.team_id,
+			sum(ss.item_count) as count,
+			sum(ss.item_amount) as amount
+		from %s ss
+		left join public.skus s on s.id = ss.sku_id
+		group by s.team_id
 		
-	with d as (
-		select
-			ih.team_id,
-			(ih.count * -1) as count,
-			
-			(
-				ih.price + coalesce(ih.ext_price, 0)
-			) as price
-
-		from public.invertory_histories ih 
-		where 
-			ih.tx_id is null
+		`,
+		graph.DependName(t, SkuReadyStockState{}),
 	)
-
-	select
-		d.team_id,
-		sum(d.count) as count,
-		sum(d.count * d.price) as amount
-	from d
-	group by d.team_id
-	
-	`
 }
 
 // TableName implements [batch_compute.Table].
@@ -72,7 +61,7 @@ func (t TeamStockErr) BuildQuery(graph *batch_compute.GraphContext) string {
 
 		select 
 			h.team_id,
-			(s.count - h.ready_count) as count_err
+			(h.ready_count - s.count) as count_err
 			
 			
 			

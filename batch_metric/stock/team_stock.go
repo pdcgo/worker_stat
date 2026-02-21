@@ -143,3 +143,31 @@ func (t TeamDailyStock) TableName() string {
 func (t TeamDailyStock) Temporary() bool {
 	return false
 }
+
+type TeamStockOutFilter struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (t TeamStockOutFilter) BuildQuery(graph *batch_compute.GraphContext) string {
+	return fmt.Sprintf(
+		`
+		select
+			s.team_id,
+			sum(item_count) as item_count,
+			sum(item_amount) as item_amount
+		from %s d
+		join public.skus s on s.id = d.sku_id
+		group by s.team_id
+		`,
+		graph.DependName(t, SkuReadyStockOutFilter{}),
+	)
+}
+
+// TableName implements [batch_compute.Table].
+func (t TeamStockOutFilter) TableName() string {
+	return "team_stock_out_filter"
+}
+
+// Temporary implements [batch_compute.Table].
+func (t TeamStockOutFilter) Temporary() bool {
+	return false
+}

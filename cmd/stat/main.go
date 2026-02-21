@@ -11,13 +11,26 @@ type AppReplication *cli.Command
 
 func NewAppReplication(
 	play PlayFunc,
+	stockStream StockStreamFunc,
 ) AppReplication {
 	return &cli.Command{
 		Commands: []*cli.Command{
 			{
 				Name:        "play",
 				Description: "batch processing playground",
-				Action:      cli.ActionFunc(play),
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "visualization",
+						Aliases: []string{"v"},
+						Usage:   "untuk generate visualization",
+					},
+				},
+				Action: cli.ActionFunc(play),
+			},
+			{
+				Name:        "stock_stream",
+				Description: "streaming stock",
+				Action:      cli.ActionFunc(stockStream),
 			},
 		},
 	}

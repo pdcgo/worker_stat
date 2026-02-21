@@ -29,7 +29,7 @@ func (d DailyTeamOrderSpent) BuildQuery(graph *batch_compute.GraphContext) strin
 		join public.inv_transactions it on it.id = cl.tx_id
 		where
 			it.type = 'order'
-			and it.created > '2025-09-09'
+			and it.created > '%s'
 
 		group by (
 			day,
@@ -37,6 +37,7 @@ func (d DailyTeamOrderSpent) BuildQuery(graph *batch_compute.GraphContext) strin
 		)
 		`,
 		graph.DependName(d, CreatedItemLog{}),
+		graph.Filter.StartDate.Format("2006-01-02"),
 	)
 }
 

@@ -22,6 +22,7 @@ func (i InboundHistory) BuildQuery(graph *batch_compute.GraphContext) string {
 			from  public.invertory_histories ih 
 			where
 				ih.in_tx_id = ih.tx_id
+				
 			group by (
 				ih.in_tx_id,
 				ih.sku_id
@@ -67,8 +68,8 @@ func (o OutboundHistory) BuildQuery(graph *batch_compute.GraphContext) string {
 		from  public.invertory_histories ih 
 		where
 			ih.tx_id is not null
-			and ih.in_tx_id is not null
 			and ih.in_tx_id != ih.tx_id
+			
 
 		group by (
 			ih.in_tx_id,
@@ -124,14 +125,14 @@ func (i InboundSpent) BuildQuery(graph *batch_compute.GraphContext) string {
 			ih.item_count as inbound_item_count,
 			ih.item_amount as inbound_item_amount,
 			
-			d.item_count as outbound_item_count,
-			d.item_amount as outbound_item_amount,
+			coalesce(d.item_count, 0) as outbound_item_count,
+			coalesce(d.item_amount, 0) as outbound_item_amount,
 			
 			(ih.item_count - coalesce(d.item_count, 0)) as count_err,
 			(ih.item_amount - coalesce(d.item_amount, 0)) as amount_err
 			
 		from %s ih 
-		join d on 
+		left join d on 
 			d.in_tx_id = ih.in_tx_id
 			and d.sku_id = ih.sku_id
 		`,

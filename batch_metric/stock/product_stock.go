@@ -6,57 +6,44 @@ import (
 	"github.com/pdcgo/worker_stat/batch_compute"
 )
 
-type SkuReadyStockState struct{}
-
-// BuildQuery implements [batch_compute.Table].
-func (p SkuReadyStockState) BuildQuery(graph *batch_compute.GraphContext) string {
-	return `
-	with d as (
-		select
-			ih.sku_id,
-			(ih.count * -1) as count,
-			
-			(
-				ih.price + coalesce(ih.ext_price, 0)
-			) as price
-
-		from public.invertory_histories ih 
-		where 
-			ih.tx_id is null
-	)
-
-	select
-		d.sku_id,
-		sum(d.count) as item_count,
-		sum(d.count * d.price) as item_amount
-	from d
-	group by d.sku_id
-	`
-}
-
-// TableName implements [batch_compute.Table].
-func (p SkuReadyStockState) TableName() string {
-	return "sku_ready_stock_state"
-}
-
-// Temporary implements [batch_compute.Table].
-func (p SkuReadyStockState) Temporary() bool {
-	return false
-}
-
 type SkuReadyStockErr struct{}
 
 // BuildQuery implements [batch_compute.Table].
 func (s SkuReadyStockErr) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
-		select
-			'1'
-		from %s
-		union
-		select
-			'1'
-		from %s
+		with d as (
+			select 
+				ins.sku_id,
+				sum(count_err) as item_count,
+				sum(amount_err) as item_amount
+			from %s ins
+			where 
+				ins.count_err > 0
+				or ins.amount_err > 0
+			group by
+				ins.sku_id
+		),
+		
+		final as (
+			select 
+				sr.sku_id,
+				sr.item_count as state_count,
+				sr.item_amount as state_amount,
+				d.item_count,
+				d.item_amount,
+				(sr.item_count - coalesce(d.item_count, 0)) as count_err,
+				(sr.item_amount - coalesce(d.item_amount, 0)) as amount_err
+			from %s sr
+			left join d on d.sku_id = sr.sku_id
+		)
+		
+		select 
+			*
+		from final
+		where 
+			count_err != 0
+			or amount_err != 0
 		`,
 		graph.DependName(s, InboundSpent{}),
 		graph.DependName(s, SkuReadyStockState{}),
