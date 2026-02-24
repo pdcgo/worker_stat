@@ -9,6 +9,7 @@ import (
 
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/batch_metric/incidents/stock_overflow"
+	"github.com/pdcgo/worker_stat/batch_metric/withdrawal"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 )
@@ -44,7 +45,7 @@ func NewPlay(db *gorm.DB) PlayFunc {
 			// stock_overflow.InboundSkuOverflow{},
 			stock_overflow.OverflowHaveStock{},
 			stock_overflow.OverflowDonthaveStock{},
-
+			withdrawal.OrderDoubleWithdrawal{},
 			// playground other
 
 			// stock.TeamStockErr{},

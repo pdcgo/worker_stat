@@ -11,6 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type CustomBuild interface {
+	BuildQueries(graph *GraphContext) []string
+}
+
 type Table interface {
 	TableName() string
 	BuildQuery(graph *GraphContext) string
@@ -71,6 +75,13 @@ func (g *GraphContext) DependName(baseTable Table, table Table) string {
 
 func (g *GraphContext) BuildQueries(table Table) []string {
 
+	// check jika custom temporary
+	custom, ok := table.(CustomBuild)
+	if ok {
+		return custom.BuildQueries(g)
+	}
+
+	// default build query
 	tableName := table.TableName()
 	queries := []string{}
 

@@ -16,7 +16,7 @@ import (
 	"github.com/pdcgo/shared/configs"
 )
 
-func ConnectReplication(ctx context.Context, dbconfig configs.DatabaseConfig, state ReplicationState) (*Replication, error) {
+func ConnectReplication(ctx context.Context, dbconfig *configs.DatabaseConfig) (*Replication, error) {
 	dsn := dbconfig.ToDsn("stat_streaming")
 	dsn += " replication=database"
 
@@ -43,14 +43,13 @@ func ConnectReplication(ctx context.Context, dbconfig configs.DatabaseConfig, st
 	}
 
 	parser := NewV2Parser(ctx)
-	return &Replication{conn, state, parser}, nil
+	return &Replication{conn, parser}, nil
 }
 
 type ReplicationHandler func(ctx context.Context, event *ReplicationEvent) error
 
 type Replication struct {
 	conn   *pgconn.PgConn
-	state  ReplicationState
 	parser Parser
 }
 
@@ -88,7 +87,6 @@ func (r *Replication) StreamStart(
 	publicationName string,
 	handler ReplicationHandler,
 ) error {
-	pctx := ctx
 	slotMng := SlotManage{r.conn}
 	slotName, err := slotMng.SlotInitialize(ctx, slotName, true)
 
@@ -103,10 +101,7 @@ func (r *Replication) StreamStart(
 	slog.Info("publication list", "publication", pubnames)
 
 	slog.Info("start streaming", "slot", slotName)
-	start, err := r.state.GetLsn(ctx)
-	if err != nil {
-		return err
-	}
+	var start pglogrepl.LSN = pglogrepl.LSN(0)
 
 	pluginArguments := []string{
 		"proto_version '2'",
@@ -164,10 +159,6 @@ func (r *Replication) StreamStart(
 			// log.Println("Primary Keepalive Message =>", "ServerWALEnd:", pkm.ServerWALEnd, "ServerTime:", pkm.ServerTime, "ReplyRequested:", pkm.ReplyRequested)
 			if pkm.ServerWALEnd > clientXLogPos {
 				clientXLogPos = pkm.ServerWALEnd
-				err = r.state.SetLsn(pctx, clientXLogPos)
-				if err != nil {
-					return err
-				}
 			}
 
 			if pkm.ReplyRequested {
@@ -195,10 +186,6 @@ func (r *Replication) StreamStart(
 			if xld.WALStart > clientXLogPos {
 
 				clientXLogPos = xld.WALStart
-				err = r.state.SetLsn(pctx, clientXLogPos)
-				if err != nil {
-					return err
-				}
 			}
 		}
 	}

@@ -12,6 +12,7 @@ type AppReplication *cli.Command
 func NewAppReplication(
 	play PlayFunc,
 	stockStream StockStreamFunc,
+	streamPlayground StreamingFunc,
 ) AppReplication {
 	return &cli.Command{
 		Commands: []*cli.Command{
@@ -31,6 +32,11 @@ func NewAppReplication(
 				Name:        "stock_stream",
 				Description: "streaming stock",
 				Action:      cli.ActionFunc(stockStream),
+			},
+			{
+				Name:        "streaming",
+				Description: "streaming playground",
+				Action:      cli.ActionFunc(streamPlayground),
 			},
 		},
 	}

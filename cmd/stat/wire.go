@@ -15,6 +15,7 @@ func InitializeAppReplication() (AppReplication, error) {
 		NewProductionDatabase,
 		NewPlay,
 		NewStockStream,
+		NewStreaming,
 		NewAppReplication,
 	)
 	return &cli.Command{}, nil

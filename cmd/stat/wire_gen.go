@@ -23,6 +23,7 @@ func InitializeAppReplication() (AppReplication, error) {
 	}
 	playFunc := NewPlay(db)
 	stockStreamFunc := NewStockStream()
-	appReplication := NewAppReplication(playFunc, stockStreamFunc)
+	streamingFunc := NewStreaming(appConfig, db)
+	appReplication := NewAppReplication(playFunc, stockStreamFunc, streamingFunc)
 	return appReplication, nil
 }
