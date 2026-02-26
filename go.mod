@@ -15,13 +15,24 @@ require (
 )
 
 require (
+	buf.build/go/protovalidate v1.0.1 // indirect
+	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/longrunning v0.7.0 // indirect
+	cloud.google.com/go/trace v1.11.7 // indirect
+	connectrpc.com/connect v1.19.1 // indirect
+	connectrpc.com/grpcreflect v1.3.0 // indirect
+	connectrpc.com/otelconnect v0.8.0 // indirect
+	connectrpc.com/validate v0.6.0 // indirect
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v1.30.0 // indirect
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.54.0 // indirect
+	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.6.2 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
+	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.3 // indirect
@@ -31,7 +42,9 @@ require (
 	github.com/olekukonko/errors v1.1.0 // indirect
 	github.com/olekukonko/ll v0.1.4-0.20260115111900-9e59c2286df0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
+	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
 	golang.org/x/telemetry v0.0.0-20260116145544-c6413dc483f5 // indirect
 )
@@ -90,7 +103,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
-	go.opentelemetry.io/otel v1.39.0 // indirect
+	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect

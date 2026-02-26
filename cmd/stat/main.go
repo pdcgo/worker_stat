@@ -36,7 +36,14 @@ func NewAppReplication(
 			{
 				Name:        "streaming",
 				Description: "streaming playground",
-				Action:      cli.ActionFunc(streamPlayground),
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "visualization",
+						Aliases: []string{"v"},
+						Usage:   "untuk generate visualization",
+					},
+				},
+				Action: cli.ActionFunc(streamPlayground),
 			},
 		},
 	}

@@ -6,16 +6,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/pdcgo/shared/configs"
+	"github.com/pdcgo/shared/custom_connect"
 	"github.com/pdcgo/shared/db_models"
 	"github.com/pdcgo/shared/pkg/common_helper"
 	"github.com/pdcgo/shared/pkg/debugtool"
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/replication"
+	"github.com/pdcgo/worker_stat/streaming_compute"
+	"github.com/pdcgo/worker_stat/streaming_metric"
 	"github.com/urfave/cli/v3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"gorm.io/gorm"
 )
 
@@ -28,14 +34,29 @@ func NewStreaming(
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
 
+		// initialize trace
+		cancelTrace, err := custom_connect.InitTracer("stock_updater")
+		if err != nil {
+			return err
+		}
+
+		defer cancelTrace(ctx)
+
 		// migration first
 		err = db.AutoMigrate(
-			&InvTransactionChange{},
+			streaming_metric.SkuStock{},
 		)
 		if err != nil {
 			return err
 		}
 
+		// create source data
+		saveInvTransactionChange, err := streaming_compute.NewSource(db, "test", &streaming_metric.InvTransactionChange{})
+		if err != nil {
+			return err
+		}
+
+		// create replication context
 		replicate, err := replication.ConnectReplication(ctx, &cfg.Database)
 
 		if err != nil {
@@ -45,6 +66,16 @@ func NewStreaming(
 		ctx, cancel := context.WithCancelCause(ctx)
 
 		compute := NewStreamCompute(ctx, cancel, db)
+
+		// generating visualization
+		visual := c.String("visualization")
+		if visual != "" {
+			err = compute.GenerateVisualization(visual)
+			if err != nil {
+				return err
+			}
+		}
+
 		go compute.Compute(time.Second * 15)
 
 		process := common_helper.NewChainParam(
@@ -72,17 +103,18 @@ func NewStreaming(
 					}
 
 					tx_type := data.Data["type"].(string)
+					status := data.Data["type"].(string)
 
-					change := InvTransactionChange{
+					change := streaming_metric.InvTransactionChange{
 						At:      time.Now().UnixMicro(),
 						TxID:    uint64(id),
 						ModType: data.ModType,
 						TxType:  db_models.InvTxType(tx_type),
+						Status:  db_models.InvTxStatus(status),
 					}
 
 					debugtool.LogJson(change)
-
-					err = db.Save(&change).Error
+					err = saveInvTransactionChange(&change)
 					return err
 				}
 			},
@@ -108,8 +140,20 @@ func NewStreamCompute(ctx context.Context, cancel context.CancelCauseFunc, db *g
 	return &StreamCompute{ctx, cancel, db, sync.Mutex{}}
 }
 
-func (s *StreamCompute) Process(ti *time.Timer, d time.Duration) {
+func (s *StreamCompute) createTableCompute() []batch_compute.Table {
+	result := []batch_compute.Table{
+		streaming_metric.SkuStock{},
+	}
+
+	return result
+}
+
+func (s *StreamCompute) Process(ctx context.Context, ti *time.Timer, d time.Duration) {
 	var err error
+
+	trace := otel.GetTracerProvider().Tracer("")
+	ctx, span := trace.Start(ctx, "update_stock")
+	defer span.End()
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -119,10 +163,12 @@ func (s *StreamCompute) Process(ti *time.Timer, d time.Duration) {
 		slog.Info("processing data..")
 
 		graph := batch_compute.NewGraphContext("test", true, &batch_compute.GlobalFilter{})
+		tableToCompute := s.createTableCompute()
 		return graph.Compute(
 			s.ctx,
 			tx,
-			SkuReadyStock{},
+			tableToCompute...,
+		// SkuReadyStockTemp{},
 		)
 
 	}, &sql.TxOptions{
@@ -133,10 +179,12 @@ func (s *StreamCompute) Process(ti *time.Timer, d time.Duration) {
 	err = s.
 		db.
 		Session(&gorm.Session{AllowGlobalUpdate: true}).
-		Delete(&InvTransactionChange{}).
+		Table("test.inv_transaction_changes").
+		Delete(&streaming_metric.InvTransactionChange{}).
 		Error
 
 	if err != nil {
+		span.SetStatus(codes.Error, err.Error())
 		slog.Error("error deleting", "err", err.Error())
 	}
 
@@ -152,7 +200,9 @@ func (s *StreamCompute) Compute(d time.Duration) {
 		case <-s.ctx.Done():
 			return
 		case <-ti.C:
-			s.Process(ti, d)
+			ctx, cancel := context.WithTimeout(s.ctx, time.Minute*15)
+			s.Process(ctx, ti, d)
+			cancel()
 		}
 	}
 }
@@ -165,47 +215,20 @@ func (s *StreamCompute) Unlock() {
 	s.lock.Unlock()
 }
 
-type InvTransactionChange struct {
-	At      int64 `gorm:"primarykey"`
-	TxID    uint64
-	TxType  db_models.InvTxType
-	ModType replication.ModificationType
-}
+func (s *StreamCompute) GenerateVisualization(fname string) error {
+	slog.Info("generate visualization", "path", fname)
+	graph := batch_compute.NewGraphContext("dump", false, &batch_compute.GlobalFilter{})
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = graph.GenerateVisualization(f, s.createTableCompute()...)
+	if err != nil {
+		return err
+	}
 
-type SkuReadyStock struct{}
-
-// BuildQuery implements [batch_compute.Table].
-func (s SkuReadyStock) BuildQuery(graph *batch_compute.GraphContext) string {
-	return `
-		with skus as (
-			select 
-				distinct iti.sku_id as sku_id
-			from public.inv_transaction_changes itc 
-			left join public.inv_tx_items iti on iti.inv_transaction_id = itc.tx_id
-			where itc.mod_type = 'insert'
-		)
-
-		select
-			ih.sku_id as sku_id,
-			sum(ih.count * -1) as ready_stock
-		from skus s
-		left join public.invertory_histories ih on ih.sku_id = s.sku_id
-		where
-			ih.tx_id is null
-		group by (
-			ih.sku_id
-		)
-	`
-}
-
-// TableName implements [batch_compute.Table].
-func (s SkuReadyStock) TableName() string {
-	return "sku_ready_stock"
-}
-
-// Temporary implements [batch_compute.Table].
-func (s SkuReadyStock) Temporary() bool {
-	return false
+	return nil
 }
 
 type SkuOngoingStock struct{}

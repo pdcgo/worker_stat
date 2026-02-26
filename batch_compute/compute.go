@@ -149,7 +149,12 @@ func (g *GraphContext) GenerateVisualization(writer io.Writer, tables ...Table) 
 			continue
 		}
 
-		table.BuildQuery(g)
+		custom, ok := table.(CustomBuild)
+		if ok {
+			custom.BuildQueries(g)
+		} else {
+			table.BuildQuery(g)
+		}
 
 		seq := fmt.Sprintf("\t%s--> [*]\n", table.TableName())
 		if !table.Temporary() {

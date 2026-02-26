@@ -9,7 +9,9 @@ import (
 
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/batch_metric/incidents/stock_overflow"
-	"github.com/pdcgo/worker_stat/batch_metric/withdrawal"
+	"github.com/pdcgo/worker_stat/batch_metric/order"
+	"github.com/pdcgo/worker_stat/batch_metric/product"
+	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
 )
@@ -41,41 +43,41 @@ func NewPlay(db *gorm.DB) PlayFunc {
 
 		graph := batch_compute.NewGraphContext(schema, disableTemporary, &filter)
 
-		tableToCompute := []batch_compute.Table{
-			// stock_overflow.InboundSkuOverflow{},
-			stock_overflow.OverflowHaveStock{},
-			stock_overflow.OverflowDonthaveStock{},
-			withdrawal.OrderDoubleWithdrawal{},
-			// playground other
-
-			// stock.TeamStockErr{},
-			// stock.TeamStockOutFilter{},
-			// stock.InboundSpentNegative{},
-			// stock.SkuReadyStockErr{},
-		}
-
 		// tableToCompute := []batch_compute.Table{
+		// 	// stock_overflow.InboundSkuOverflow{},
 		// 	stock_overflow.OverflowHaveStock{},
 		// 	stock_overflow.OverflowDonthaveStock{},
-		// 	stock.InboundSpentNegative{},
-		// 	stock.SkuReadyStockErr{},
+		// 	withdrawal.OrderDoubleWithdrawal{},
+		// 	// playground other
 
-		// 	stock.TeamStockErr{},
-
-		// 	stock.DailyTeamOrderSpent{},
-		// 	stock.DailyTeamBrokenCreated{},
-
-		// 	stock.DailyTeamRestock{},
-		// 	stock.TeamRestockState{},
-		// 	stock.DailyTeamReturn{},
-
-		// 	product.VariantSold{},
-		// 	product.VariantCurrentStock{},
-
-		// 	order.UserRevenueCreated{},
-		// 	order.TeamHoldErr{},
-		// 	order.ShopHoldErr{},
+		// 	// stock.TeamStockErr{},
+		// 	// stock.TeamStockOutFilter{},
+		// 	// stock.InboundSpentNegative{},
+		// 	// stock.SkuReadyStockErr{},
 		// }
+
+		tableToCompute := []batch_compute.Table{
+			stock_overflow.OverflowHaveStock{},
+			stock_overflow.OverflowDonthaveStock{},
+			stock.InboundSpentNegative{},
+			stock.SkuReadyStockErr{},
+
+			stock.TeamStockErr{},
+
+			stock.DailyTeamOrderSpent{},
+			stock.DailyTeamBrokenCreated{},
+
+			stock.DailyTeamRestock{},
+			stock.TeamRestockState{},
+			stock.DailyTeamReturn{},
+
+			product.VariantSold{},
+			product.VariantCurrentStock{},
+
+			order.UserRevenueCreated{},
+			order.TeamHoldErr{},
+			order.ShopHoldErr{},
+		}
 
 		err = graph.Compute(ctx, tx, tableToCompute...)
 		if err != nil {
