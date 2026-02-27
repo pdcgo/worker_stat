@@ -18,21 +18,28 @@ func (s SkuReadyStockTemp) BuildQuery(graph *batch_compute.GraphContext) string 
 				distinct iti.sku_id as sku_id
 			from %s itc 
 			left join public.inv_tx_items iti on iti.inv_transaction_id = itc.tx_id
-			where itc.mod_type = 'insert'
+			where 
+				itc.tx_type = 'order'
+				and (
+					itc.mod_type = 'insert'
+					or itc.status = 'cancel'
+				)
+				
 		)
 
 		select
-			ih.sku_id as sku_id,
-			sum(ih.count * -1) as ready_stock
+			s.sku_id as sku_id,
+			sum(ih.count * -1) as ready_stock_count,
+			sum((ih.count * -1) * (ih.price + coalesce(ih.ext_price, 0))) as ready_stock_amount
 		from skus s
 		left join public.invertory_histories ih on ih.sku_id = s.sku_id
 		where
 			ih.tx_id is null
 		group by (
-			ih.sku_id
+			s.sku_id
 		)
 		`,
-		graph.DependName(s, InvTransactionChange{}),
+		graph.DependName(s, &InvTransactionChange{}),
 	)
 }
 
@@ -66,7 +73,7 @@ func (s SkuOngoingStock) BuildQuery(graph *batch_compute.GraphContext) string {
 		group by
 			sku_id
 		`,
-		graph.DependName(s, InvTransactionChange{}),
+		graph.DependName(s, &InvTransactionChange{}),
 	)
 }
 

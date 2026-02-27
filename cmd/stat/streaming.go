@@ -2,12 +2,8 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
-	"sync"
 	"time"
 
 	"github.com/pdcgo/shared/configs"
@@ -20,8 +16,6 @@ import (
 	"github.com/pdcgo/worker_stat/streaming_compute"
 	"github.com/pdcgo/worker_stat/streaming_metric"
 	"github.com/urfave/cli/v3"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/codes"
 	"gorm.io/gorm"
 )
 
@@ -51,7 +45,11 @@ func NewStreaming(
 		}
 
 		// create source data
-		saveInvTransactionChange, err := streaming_compute.NewSource(db, "test", &streaming_metric.InvTransactionChange{})
+		saveInvTransactionChange, err := streaming_compute.NewSource(
+			db,
+			"test",
+			&streaming_metric.InvTransactionChange{},
+		)
 		if err != nil {
 			return err
 		}
@@ -65,7 +63,15 @@ func NewStreaming(
 
 		ctx, cancel := context.WithCancelCause(ctx)
 
-		compute := NewStreamCompute(ctx, cancel, db)
+		compute := streaming_compute.
+			NewStreamCompute(
+				ctx,
+				cancel,
+				db,
+				[]batch_compute.Table{
+					streaming_metric.SkuStock{},
+				},
+			)
 
 		// generating visualization
 		visual := c.String("visualization")
@@ -103,7 +109,7 @@ func NewStreaming(
 					}
 
 					tx_type := data.Data["type"].(string)
-					status := data.Data["type"].(string)
+					status := data.Data["status"].(string)
 
 					change := streaming_metric.InvTransactionChange{
 						At:      time.Now().UnixMicro(),
@@ -126,109 +132,6 @@ func NewStreaming(
 
 		return err
 	}
-}
-
-type StreamCompute struct {
-	ctx    context.Context
-	cancel context.CancelCauseFunc
-
-	db   *gorm.DB
-	lock sync.Mutex
-}
-
-func NewStreamCompute(ctx context.Context, cancel context.CancelCauseFunc, db *gorm.DB) *StreamCompute {
-	return &StreamCompute{ctx, cancel, db, sync.Mutex{}}
-}
-
-func (s *StreamCompute) createTableCompute() []batch_compute.Table {
-	result := []batch_compute.Table{
-		streaming_metric.SkuStock{},
-	}
-
-	return result
-}
-
-func (s *StreamCompute) Process(ctx context.Context, ti *time.Timer, d time.Duration) {
-	var err error
-
-	trace := otel.GetTracerProvider().Tracer("")
-	ctx, span := trace.Start(ctx, "update_stock")
-	defer span.End()
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	defer ti.Reset(d)
-
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		slog.Info("processing data..")
-
-		graph := batch_compute.NewGraphContext("test", true, &batch_compute.GlobalFilter{})
-		tableToCompute := s.createTableCompute()
-		return graph.Compute(
-			s.ctx,
-			tx,
-			tableToCompute...,
-		// SkuReadyStockTemp{},
-		)
-
-	}, &sql.TxOptions{
-		Isolation: sql.LevelRepeatableRead,
-	})
-
-	// deleting change
-	err = s.
-		db.
-		Session(&gorm.Session{AllowGlobalUpdate: true}).
-		Table("test.inv_transaction_changes").
-		Delete(&streaming_metric.InvTransactionChange{}).
-		Error
-
-	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
-		slog.Error("error deleting", "err", err.Error())
-	}
-
-}
-
-func (s *StreamCompute) Compute(d time.Duration) {
-
-	ti := time.NewTimer(d)
-	defer ti.Stop()
-
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-ti.C:
-			ctx, cancel := context.WithTimeout(s.ctx, time.Minute*15)
-			s.Process(ctx, ti, d)
-			cancel()
-		}
-	}
-}
-
-func (s *StreamCompute) Lock() {
-	s.lock.Lock()
-}
-
-func (s *StreamCompute) Unlock() {
-	s.lock.Unlock()
-}
-
-func (s *StreamCompute) GenerateVisualization(fname string) error {
-	slog.Info("generate visualization", "path", fname)
-	graph := batch_compute.NewGraphContext("dump", false, &batch_compute.GlobalFilter{})
-	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	err = graph.GenerateVisualization(f, s.createTableCompute()...)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type SkuOngoingStock struct{}

@@ -11,7 +11,8 @@ import (
 
 type SkuStock struct {
 	SkuID             db_models.SkuID `gorm:"primarykey"`
-	ReadyStock        uint64
+	ReadyStockCount   int64
+	ReadyStockAmount  float64
 	OngoingTxCount    int32
 	OngoingItemCount  int64
 	OngoingItemAmount float64
@@ -33,7 +34,7 @@ func (s SkuStock) BuildQueries(graph *batch_compute.GraphContext) []string {
 			graph.DependName(s, SkuReadyStockTemp{}),
 		),
 		[]string{"sku_id"},
-		[]string{"ready_stock", "last_updated"},
+		[]string{"ready_stock_count", "ready_stock_amount", "last_updated"},
 	)
 
 	ongoingInsert := streaming_compute.Upsert(
@@ -60,5 +61,5 @@ func (s SkuStock) Temporary() bool {
 }
 
 func (SkuStock) TableName() string {
-	return "test.sku_ready_stock"
+	return "test.sku_stocks"
 }

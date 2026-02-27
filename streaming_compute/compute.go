@@ -2,100 +2,147 @@ package streaming_compute
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strings"
+	"database/sql"
+	"log/slog"
+	"os"
+	"sync"
+	"time"
 
+	"github.com/pdcgo/worker_stat/batch_compute"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 )
 
-type StreamingStep interface{}
-
-type StreamingContext struct {
+type StreamCompute struct {
 	ctx    context.Context
-	db     *gorm.DB
-	schema string
+	cancel context.CancelCauseFunc
+
+	db   *gorm.DB
+	lock sync.Mutex
+
+	computeTables []batch_compute.Table
 }
 
-func NewStreamingContext(ctx context.Context, db *gorm.DB, schema string) *StreamingContext {
-	return &StreamingContext{ctx, db, schema}
+func NewStreamCompute(
+	ctx context.Context,
+	cancel context.CancelCauseFunc,
+	db *gorm.DB,
+	computeTables []batch_compute.Table,
+) *StreamCompute {
+	return &StreamCompute{ctx, cancel, db, sync.Mutex{}, computeTables}
 }
 
-func (s *StreamingContext) SetSchema(tx *gorm.DB) error {
-	return tx.Exec("SET LOCAL search_path TO " + s.schema).Error
-}
-
-type Tabler interface {
-	TableName() string
-}
-
-func NewSource[T any](db *gorm.DB, schema string, source T) (func(data T) error, error) {
+func (s *StreamCompute) Process(ctx context.Context, ti *time.Timer, d time.Duration) {
 	var err error
-	var handler func(data T) error
-	var dd any = source
 
-	ta, ok := dd.(Tabler)
-	if !ok {
-		return handler, errors.New("unsupported for creating source")
-	}
+	tracer := otel.GetTracerProvider().Tracer("")
+	ctx, span := tracer.Start(ctx, "update_stock")
+	defer span.End()
 
-	// tableName := ta.TableName()
-	// if strings.HasPrefix(tableName, "public.") {
-	// 	return handler, fmt.Errorf("tidak boleh pakai schema public  %s", tableName)
-	// }
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	defer ti.Reset(d)
 
-	// if !strings.Contains(tableName, ".") {
-	// 	return handler, fmt.Errorf("add schema explicitly %s", tableName)
-	// }
-	tableName := schema + "." + ta.TableName()
-	err = db.
-		Table(tableName).
-		AutoMigrate(source)
-	if err != nil {
-		return handler, err
-	}
+	graph := batch_compute.NewGraphContext("test", true, &batch_compute.GlobalFilter{})
 
-	handler = func(data T) error {
-		return db.Table(tableName).Save(data).Error
-	}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		slog.Info("processing data..")
 
-	return handler, err
-}
-
-func (s *StreamingContext) Compute() error {
-	return nil
-}
-
-func Upsert(
-	dstTable string,
-	query string,
-	onConflict []string,
-	fields []string,
-) string {
-
-	sets := []string{}
-	for _, field := range fields {
-		sets = append(sets,
-			fmt.Sprintf("%s = EXCLUDED.%s", field, field),
+		return graph.Compute(
+			s.ctx,
+			tx,
+			s.computeTables...,
+		// SkuReadyStockTemp{},
 		)
+
+	}, &sql.TxOptions{
+		Isolation: sql.LevelRepeatableRead,
+	})
+
+	if err != nil {
+		span.RecordError(
+			err,
+			trace.WithStackTrace(true),
+		)
+		span.SetStatus(codes.Error, err.Error())
+
+		// s.cancel(err)
+		return
 	}
 
-	allFields := []string{}
-	allFields = append(allFields, onConflict...)
-	allFields = append(allFields, fields...)
+	var table SourceTable
+	var ok bool
+	for _, item := range graph.DependTables() {
+		// log.Println(item.TableName(), ok, "asdasdasdasdasd")
+		table, ok = item.(SourceTable)
+		if !ok {
+			continue
+		}
 
-	return fmt.Sprintf(
-		`
-		INSERT INTO %s (%s)
-		%s
-		ON CONFLICT (%s)
-		DO UPDATE SET
-			%s
-		`,
-		dstTable,
-		strings.Join(allFields, ", "),
-		query,
-		strings.Join(onConflict, ", "),
-		strings.Join(sets, ","),
-	)
+		err = table.AfterCalculate(s.db)
+		if err != nil {
+			span.RecordError(
+				err,
+				trace.WithStackTrace(true),
+			)
+			span.SetStatus(codes.Error, err.Error())
+		}
+	}
+
+	// // deleting change
+	// err = s.
+	// 	db.
+	// 	Session(&gorm.Session{AllowGlobalUpdate: true}).
+	// 	Table("test.inv_transaction_changes").
+	// 	Delete(&streaming_metric.InvTransactionChange{}).
+	// 	Error
+
+	// if err != nil {
+	// 	span.SetStatus(codes.Error, err.Error())
+	// 	slog.Error("error deleting", "err", err.Error())
+	// }
+
+}
+
+func (s *StreamCompute) Compute(d time.Duration) {
+
+	ti := time.NewTimer(d)
+	defer ti.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ti.C:
+			ctx, cancel := context.WithTimeout(s.ctx, time.Minute*15)
+			s.Process(ctx, ti, d)
+			cancel()
+		}
+	}
+}
+
+func (s *StreamCompute) Lock() {
+	s.lock.Lock()
+}
+
+func (s *StreamCompute) Unlock() {
+	s.lock.Unlock()
+}
+
+func (s *StreamCompute) GenerateVisualization(fname string) error {
+	slog.Info("generate visualization", "path", fname)
+	graph := batch_compute.NewGraphContext("dump", false, &batch_compute.GlobalFilter{})
+	f, err := os.OpenFile(fname, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = graph.GenerateVisualization(f, s.computeTables...)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

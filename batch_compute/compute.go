@@ -29,6 +29,7 @@ type GraphContext struct {
 	Schema           string
 	seqMap           map[string]int
 	sequences        []string
+	dependent        []Table
 	tableSequences   [][]Table
 	disableTemporary bool
 
@@ -39,7 +40,7 @@ func NewGraphContext(schema string, disableTemporary bool, filter *GlobalFilter)
 	if schema == "public" {
 		panic("schema utama coyyyyyyyyyyy")
 	}
-	return &GraphContext{schema, map[string]int{}, []string{}, [][]Table{}, disableTemporary, filter}
+	return &GraphContext{schema, map[string]int{}, []string{}, []Table{}, [][]Table{}, disableTemporary, filter}
 }
 
 func (g *GraphContext) GetTableName(table Table) string {
@@ -68,9 +69,13 @@ func (g *GraphContext) DependName(baseTable Table, table Table) string {
 
 	}
 	g.tableSequences = append(g.tableSequences, []Table{table, baseTable})
+	g.dependent = append(g.dependent, table)
 	g.seqMap[tableName] += 1
 
 	return tableName
+}
+func (g *GraphContext) DependTables() []Table {
+	return g.dependent
 }
 
 func (g *GraphContext) BuildQueries(table Table) []string {
