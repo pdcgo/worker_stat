@@ -11,6 +11,7 @@ type AppReplication *cli.Command
 
 func NewAppReplication(
 	play PlayFunc,
+	playground PlaygroundFunc,
 	stockStream StockStreamFunc,
 	streamPlayground StreamingFunc,
 ) AppReplication {
@@ -44,6 +45,11 @@ func NewAppReplication(
 					},
 				},
 				Action: cli.ActionFunc(streamPlayground),
+			},
+			{
+				Name:        "playground",
+				Description: "playground testing",
+				Action:      cli.ActionFunc(playground),
 			},
 		},
 	}

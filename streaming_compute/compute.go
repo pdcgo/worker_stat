@@ -23,15 +23,17 @@ type StreamCompute struct {
 	lock sync.Mutex
 
 	computeTables []batch_compute.Table
+	schema        string
 }
 
 func NewStreamCompute(
 	ctx context.Context,
 	cancel context.CancelCauseFunc,
 	db *gorm.DB,
+	schema string,
 	computeTables []batch_compute.Table,
 ) *StreamCompute {
-	return &StreamCompute{ctx, cancel, db, sync.Mutex{}, computeTables}
+	return &StreamCompute{ctx, cancel, db, sync.Mutex{}, computeTables, schema}
 }
 
 func (s *StreamCompute) Process(ctx context.Context, ti *time.Timer, d time.Duration) {
@@ -45,7 +47,7 @@ func (s *StreamCompute) Process(ctx context.Context, ti *time.Timer, d time.Dura
 	defer s.lock.Unlock()
 	defer ti.Reset(d)
 
-	graph := batch_compute.NewGraphContext("test", true, &batch_compute.GlobalFilter{})
+	graph := batch_compute.NewGraphContext(s.schema, true, &batch_compute.GlobalFilter{})
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		slog.Info("processing data..")

@@ -36,9 +36,20 @@ func NewStreaming(
 
 		defer cancelTrace(ctx)
 
+		var schema string = "test"
+
+		sql := db.ToSQL(func(tx *gorm.DB) *gorm.DB {
+			tx.Migrator().CreateTable(streaming_metric.SkuStock{})
+			return tx
+		})
+
+		fmt.Println(sql, "asdasdas")
+		return nil
+
 		// migration first
-		err = db.AutoMigrate(
+		err = streaming_compute.MigrateSink(db, schema,
 			streaming_metric.SkuStock{},
+			streaming_metric.VariantStock{},
 		)
 		if err != nil {
 			return err
@@ -47,7 +58,7 @@ func NewStreaming(
 		// create source data
 		saveInvTransactionChange, err := streaming_compute.NewSource(
 			db,
-			"test",
+			schema,
 			&streaming_metric.InvTransactionChange{},
 		)
 		if err != nil {
@@ -68,8 +79,10 @@ func NewStreaming(
 				ctx,
 				cancel,
 				db,
+				schema,
 				[]batch_compute.Table{
 					streaming_metric.SkuStock{},
+					streaming_metric.VariantStock{},
 				},
 			)
 
@@ -86,7 +99,7 @@ func NewStreaming(
 
 		process := common_helper.NewChainParam(
 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
-				return func(event *replication.ReplicationEvent) error { // filtering cuma inv_transaction
+				return func(event *replication.ReplicationEvent) (*replication.ReplicationEvent, error) { // filtering cuma inv_transaction
 					switch event.SourceMetadata.Table {
 					case "inv_transactions":
 						// shared locking dengan compute
@@ -95,17 +108,17 @@ func NewStreaming(
 
 						return next(event)
 					default:
-						return nil
+						return event, nil
 					}
 				}
 			},
 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
-				return func(data *replication.ReplicationEvent) error {
+				return func(data *replication.ReplicationEvent) (*replication.ReplicationEvent, error) {
 					// log.Println(data.SourceMetadata.Table, data.ModType)
 
 					id, ok := data.Data["id"].(int64)
 					if !ok {
-						return errors.New("cannot get id")
+						return data, errors.New("cannot get id")
 					}
 
 					tx_type := data.Data["type"].(string)
@@ -121,13 +134,14 @@ func NewStreaming(
 
 					debugtool.LogJson(change)
 					err = saveInvTransactionChange(&change)
-					return err
+					return data, err
 				}
 			},
 		)
 
 		err = replicate.StreamStart(ctx, "test", "stat_publication", func(ctx context.Context, event *replication.ReplicationEvent) error {
-			return process(event)
+			_, err = process(event)
+			return err
 		})
 
 		return err

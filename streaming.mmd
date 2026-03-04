@@ -1,6 +1,9 @@
 stateDiagram-v2
-	test.sku_ready_stock--> [*]
-	inv_transaction_changes--> sku_ready_stock_temp
-	sku_ready_stock_temp--> test.sku_ready_stock
+	sku_stocks--> [*]
+	variant_stocks--> [*]
+	style variant_stocks fill:#4CAF50
+	inv_transaction_changes--> sku_ready_stock
+	sku_ready_stock--> sku_stocks
 	inv_transaction_changes--> sku_ongoing_stock
-	sku_ongoing_stock--> test.sku_ready_stock
+	sku_ongoing_stock--> sku_stocks
+	sku_ready_stock--> variant_stocks

@@ -4,6 +4,45 @@ import (
 	"gorm.io/gorm"
 )
 
+type StreamingSource interface {
+	Tabler
+	IsSource() bool
+}
+
+func (s *StreamingContext) EmitToSource(tx *gorm.DB, row StreamingSource) error {
+	if !row.IsSource() {
+		return nil
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	err := tx.
+		Table(s.TableName(row)).
+		Create(row).
+		Error
+
+	return err
+}
+
+func (s *StreamingContext) RegisterSource(tx *gorm.DB, sources ...StreamingSource) error {
+	var err error
+
+	for _, source := range sources {
+		tableName := s.TableName(source)
+		err = tx.Table(tableName).AutoMigrate(&source)
+		if err != nil {
+			return err
+		}
+
+		s.sourceTablemap[tableName] = source
+	}
+
+	return nil
+}
+
+// ------------------------------- lama ---------------------------------
+
 type SourceTable interface {
 	TableName() string
 	AfterCalculate(db *gorm.DB) error
