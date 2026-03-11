@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/pdcgo/shared/configs"
 	"github.com/pdcgo/shared/custom_connect"
 	"github.com/pdcgo/shared/db_models"
 	"github.com/pdcgo/shared/pkg/common_helper"
-	"github.com/pdcgo/shared/pkg/debugtool"
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/replication"
 	"github.com/pdcgo/worker_stat/streaming_compute"
@@ -27,6 +28,9 @@ func NewStreaming(
 ) StreamingFunc {
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
+		if c.Bool("debug") {
+			slog.SetLogLoggerLevel(slog.LevelDebug)
+		}
 
 		// initialize trace
 		cancelTrace, err := custom_connect.InitTracer("stock_updater")
@@ -38,31 +42,40 @@ func NewStreaming(
 
 		var schema string = "test"
 
-		sql := db.ToSQL(func(tx *gorm.DB) *gorm.DB {
-			tx.Migrator().CreateTable(streaming_metric.SkuStock{})
-			return tx
-		})
+		stream := streaming_compute.NewStreamingContext(
+			streaming_compute.WithSchemaOption(schema),
+		)
 
-		fmt.Println(sql, "asdasdas")
-		return nil
-
-		// migration first
-		err = streaming_compute.MigrateSink(db, schema,
-			streaming_metric.SkuStock{},
-			streaming_metric.VariantStock{},
+		// registering source
+		err = stream.RegisterSource(
+			db,
+			&streaming_metric.InvTransactionChange{},
 		)
 		if err != nil {
 			return err
 		}
 
-		// create source data
-		saveInvTransactionChange, err := streaming_compute.NewSource(
+		err = stream.RegisterSink(
 			db,
-			schema,
-			&streaming_metric.InvTransactionChange{},
+			&streaming_metric.SkuStock{},
 		)
 		if err != nil {
 			return err
+		}
+
+		// registering computation
+		compute := stream.Compute(
+			&streaming_metric.SkuStock{},
+			// &streaming_metric.VariantStock{},
+		)
+
+		// generate visualization
+		visual := c.String("visualization")
+		if visual != "" {
+			err = stream.GenerateVisualization(visual)
+			if err != nil {
+				return err
+			}
 		}
 
 		// create replication context
@@ -72,40 +85,11 @@ func NewStreaming(
 			return err
 		}
 
-		ctx, cancel := context.WithCancelCause(ctx)
-
-		compute := streaming_compute.
-			NewStreamCompute(
-				ctx,
-				cancel,
-				db,
-				schema,
-				[]batch_compute.Table{
-					streaming_metric.SkuStock{},
-					streaming_metric.VariantStock{},
-				},
-			)
-
-		// generating visualization
-		visual := c.String("visualization")
-		if visual != "" {
-			err = compute.GenerateVisualization(visual)
-			if err != nil {
-				return err
-			}
-		}
-
-		go compute.Compute(time.Second * 15)
-
 		process := common_helper.NewChainParam(
 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
 				return func(event *replication.ReplicationEvent) (*replication.ReplicationEvent, error) { // filtering cuma inv_transaction
 					switch event.SourceMetadata.Table {
 					case "inv_transactions":
-						// shared locking dengan compute
-						compute.Lock()
-						defer compute.Unlock()
-
 						return next(event)
 					default:
 						return event, nil
@@ -114,7 +98,9 @@ func NewStreaming(
 			},
 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
 				return func(data *replication.ReplicationEvent) (*replication.ReplicationEvent, error) {
-					// log.Println(data.SourceMetadata.Table, data.ModType)
+					var err error
+					stream.Lock()
+					defer stream.Unlock()
 
 					id, ok := data.Data["id"].(int64)
 					if !ok {
@@ -132,18 +118,69 @@ func NewStreaming(
 						Status:  db_models.InvTxStatus(status),
 					}
 
-					debugtool.LogJson(change)
-					err = saveInvTransactionChange(&change)
+					slog.Debug("add item to source",
+						slog.Any("change", change),
+					)
+
+					err = stream.EmitToSource(db, &change)
+					if err != nil {
+						return data, err
+					}
 					return data, err
 				}
 			},
 		)
 
-		err = replicate.StreamStart(ctx, "test", "stat_publication", func(ctx context.Context, event *replication.ReplicationEvent) error {
-			_, err = process(event)
-			return err
-		})
+		// creating runner
+		rctx := streaming_compute.NewRunnerContext(ctx)
 
+		streaming_compute.Run(
+			"replication",
+			rctx,
+			func() error {
+				return replicate.
+					StreamStart(
+						rctx,
+						"test",
+						"stat_publication",
+						func(ctx context.Context, event *replication.ReplicationEvent) error {
+							_, err = process(event)
+							return err
+						},
+					)
+			},
+		)
+
+		// log.Println(compute)
+
+		streaming_compute.RunPeriodically(
+			"periodic_stream",
+			rctx,
+			time.Second*10,
+			func() error {
+				err = db.
+					Transaction(func(tx *gorm.DB) error {
+						return compute(rctx, tx)
+					},
+						&sql.TxOptions{
+							Isolation: sql.LevelRepeatableRead,
+						},
+					)
+				slog.Info("finished")
+				return err
+			},
+		)
+
+		<-rctx.Done()
+
+		slog.Info("replication existed")
+
+		err = rctx.
+			Error
+
+		if err != nil {
+			slog.Error(err.Error())
+		}
 		return err
 	}
 }

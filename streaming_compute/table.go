@@ -10,12 +10,12 @@ import (
 
 type Tabler interface {
 	StreamTableName() string
+	Temporary() bool
 }
 
 type StreamingTable interface {
 	Tabler
 	BuildQueries(s *StreamingContext) []string
-	Temporary() bool
 }
 
 func (s *StreamingContext) createTable(
@@ -31,7 +31,7 @@ func (s *StreamingContext) createTable(
 	}
 
 	if len(stmt.Schema.DBNames) == 0 {
-		return nil
+		return fmt.Errorf("table %s has no fields", table.StreamTableName())
 	}
 
 	var fields []string
@@ -61,7 +61,7 @@ func (s *StreamingContext) createTable(
 				`
 					%s %s (
 						%s
-					);
+					) on commit drop;
 				`,
 				createCommand,
 				tableName,
@@ -104,6 +104,16 @@ func (s *StreamingContext) createTable(
 	return nil
 }
 
-// truncate
-// insert
-// upsert
+type StreamingExternal struct {
+	Name string
+}
+
+// StreamTableName implements [Tabler].
+func (s *StreamingExternal) StreamTableName() string {
+	return s.Name
+}
+
+// Temporary implements [Tabler].
+func (s *StreamingExternal) Temporary() bool {
+	return false
+}

@@ -7,7 +7,7 @@ require (
 	github.com/google/wire v0.7.0
 	github.com/jackc/pglogrepl v0.0.0-20251213150135-2e8d0df862c1
 	github.com/olekukonko/tablewriter v1.1.3
-	github.com/pdcgo/shared v1.0.121
+	github.com/pdcgo/shared v1.0.125
 	github.com/shopspring/decimal v1.4.0
 	github.com/urfave/cli/v3 v3.6.2
 	github.com/wargasipil/stream_engine v0.0.0-20260117095016-6523c2c5e140
@@ -103,7 +103,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
-	go.opentelemetry.io/otel v1.39.0
+	go.opentelemetry.io/otel v1.39.0 // indirect
 	go.opentelemetry.io/otel/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect

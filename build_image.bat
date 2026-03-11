@@ -1,0 +1,1 @@
+gcloud builds submit --tag asia-southeast2-docker.pkg.dev/pdcgudang/workers/worker-stat:latest

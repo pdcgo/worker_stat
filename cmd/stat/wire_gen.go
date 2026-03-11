@@ -21,10 +21,10 @@ func InitializeAppReplication() (AppReplication, error) {
 	if err != nil {
 		return nil, err
 	}
-	playFunc := NewPlay(db)
+	batchFunc := NewBatch(db)
 	playgroundFunc := NewPlayground(db)
 	stockStreamFunc := NewStockStream()
 	streamingFunc := NewStreaming(appConfig, db)
-	appReplication := NewAppReplication(playFunc, playgroundFunc, stockStreamFunc, streamingFunc)
+	appReplication := NewAppReplication(batchFunc, playgroundFunc, stockStreamFunc, streamingFunc)
 	return appReplication, nil
 }

@@ -1,9 +1,13 @@
 stateDiagram-v2
-	sku_stocks--> [*]
-	variant_stocks--> [*]
-	style variant_stocks fill:#4CAF50
-	inv_transaction_changes--> sku_ready_stock
-	sku_ready_stock--> sku_stocks
-	inv_transaction_changes--> sku_ongoing_stock
-	sku_ongoing_stock--> sku_stocks
-	sku_ready_stock--> variant_stocks
+	inv_transaction_change--> sku_ready_stock
+	style inv_transaction_change fill:#b56d02
+	public.inv_tx_items--> sku_ready_stock
+	public.invertory_histories--> sku_ready_stock
+	sku_ready_stock--> sku_stock
+	style sku_ready_stock fill:#4CAF50
+	inv_transaction_change--> sku_ongoing_stock
+	style inv_transaction_change fill:#b56d02
+	public.inv_transactions--> sku_ongoing_stock
+	public.inv_tx_items--> sku_ongoing_stock
+	sku_ongoing_stock--> sku_stock
+	style sku_ongoing_stock fill:#4CAF50

@@ -70,6 +70,11 @@ type MockSource struct {
 	Data int64
 }
 
+// Temporary implements [streaming_compute.StreamingSource].
+func (m *MockSource) Temporary() bool {
+	return false
+}
+
 // IsSource implements [streaming_compute.StreamingSource].
 func (m *MockSource) IsSource() bool {
 	return true
