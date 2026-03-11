@@ -1,0 +1,12 @@
+stateDiagram-v2
+	kontrol_stock--> [*]
+	style kontrol_stock fill:#4CAF50
+	order_item_log--> variant_sold
+	variant_sold--> kontrol_stock
+	style variant_sold fill:#4CAF50
+	variant_current_stock--> kontrol_stock
+	style variant_current_stock fill:#4CAF50
+	tx_item_log--> warehouse_variant_ongoing_stock
+	warehouse_variant_ongoing_stock--> kontrol_stock
+	style warehouse_variant_ongoing_stock fill:#4CAF50
+	variation_ref--> kontrol_stock

@@ -11,6 +11,7 @@ import (
 	"github.com/pdcgo/worker_stat/batch_metric/incidents/stock_overflow"
 	"github.com/pdcgo/worker_stat/batch_metric/order"
 	"github.com/pdcgo/worker_stat/batch_metric/product"
+	"github.com/pdcgo/worker_stat/batch_metric/sheet"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
 	"gorm.io/gorm"
@@ -53,11 +54,15 @@ func NewBatch(db *gorm.DB) BatchFunc {
 			// }
 
 			tableToCompute = []batch_compute.Table{
-				stock.DailyTeamOrderSpent{},
+				sheet.KontrolStock{},
+				// order.TeamHoldErr{},
 			}
 
 		} else {
 			tableToCompute = []batch_compute.Table{
+				// kebutuhan sheet
+				sheet.KontrolStock{},
+
 				stock_overflow.OverflowHaveStock{},
 				stock_overflow.OverflowDonthaveStock{},
 				stock.InboundSpentNegative{},
