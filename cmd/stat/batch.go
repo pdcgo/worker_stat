@@ -14,6 +14,8 @@ import (
 	"github.com/pdcgo/worker_stat/batch_metric/sheet"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +24,14 @@ type BatchFunc cli.ActionFunc
 func NewBatch(db *gorm.DB) BatchFunc {
 	return func(ctx context.Context, c *cli.Command) error {
 		var err error
+
+		ctx, cancel := context.WithTimeout(ctx, time.Hour)
+		defer cancel()
+
+		// start span
+		var span trace.Span
+		ctx, span = otel.GetTracerProvider().Tracer("").Start(ctx, "batch_computing_stat")
+		defer span.End()
 
 		tx := db.
 			Begin(&sql.TxOptions{
