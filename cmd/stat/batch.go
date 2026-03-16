@@ -10,6 +10,7 @@ import (
 	"github.com/pdcgo/worker_stat/batch_compute"
 	"github.com/pdcgo/worker_stat/batch_metric/incidents/stock_overflow"
 	"github.com/pdcgo/worker_stat/batch_metric/order"
+	"github.com/pdcgo/worker_stat/batch_metric/performance"
 	"github.com/pdcgo/worker_stat/batch_metric/product"
 	"github.com/pdcgo/worker_stat/batch_metric/sheet"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
@@ -70,6 +71,11 @@ func NewBatch(db *gorm.DB) BatchFunc {
 
 		} else {
 			tableToCompute = []batch_compute.Table{
+				// gudang performance
+				performance.DailyWarehousePicking{},
+				performance.DailyUserPicking{},
+				performance.DailyWarehouseCompleted{},
+
 				// kebutuhan sheet
 				sheet.KontrolStock{},
 
