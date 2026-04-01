@@ -12,6 +12,7 @@ import (
 	"github.com/pdcgo/worker_stat/batch_metric/order"
 	"github.com/pdcgo/worker_stat/batch_metric/performance"
 	"github.com/pdcgo/worker_stat/batch_metric/product"
+	"github.com/pdcgo/worker_stat/batch_metric/profit"
 	"github.com/pdcgo/worker_stat/batch_metric/sheet"
 	"github.com/pdcgo/worker_stat/batch_metric/stock"
 	"github.com/urfave/cli/v3"
@@ -65,7 +66,9 @@ func NewBatch(db *gorm.DB) BatchFunc {
 			// }
 
 			tableToCompute = []batch_compute.Table{
-				sheet.KontrolStock{},
+				profit.UserOrderRevenue{},
+				profit.TeamOrderRevenue{},
+				profit.ShopOrderRevenue{},
 				// order.TeamHoldErr{},
 			}
 
@@ -75,6 +78,11 @@ func NewBatch(db *gorm.DB) BatchFunc {
 				performance.DailyWarehousePicking{},
 				performance.DailyUserPicking{},
 				performance.DailyWarehouseCompleted{},
+
+				// revenue
+				profit.UserOrderRevenue{},
+				profit.TeamOrderRevenue{},
+				profit.ShopOrderRevenue{},
 
 				// kebutuhan sheet
 				sheet.KontrolStock{},
