@@ -1,93 +1,12 @@
 stateDiagram-v2
-	overflow_have_stock--> [*]
-	overflow_donthave_stock--> [*]
-	inbound_spent_negative--> [*]
-	style inbound_spent_negative fill:#4CAF50
-	sku_ready_stock_err--> [*]
-	style sku_ready_stock_err fill:#4CAF50
-	team_stock_err--> [*]
-	style team_stock_err fill:#4CAF50
-	daily_team_restock--> [*]
-	style daily_team_restock fill:#4CAF50
-	team_restock_state--> [*]
-	style team_restock_state fill:#4CAF50
-	daily_team_return--> [*]
-	style daily_team_return fill:#4CAF50
-	variant_sold--> [*]
-	style variant_sold fill:#4CAF50
-	variant_current_stock--> [*]
-	style variant_current_stock fill:#4CAF50
-	user_revenue_created--> [*]
-	style user_revenue_created fill:#4CAF50
-	team_hold_err--> [*]
-	style team_hold_err fill:#4CAF50
-	shop_hold_err--> [*]
-	style shop_hold_err fill:#4CAF50
-	inbound_log--> inbound_overflow
-	inbound_overflow--> overflow_have_stock
-	inbound_overflow--> overflow_donthave_stock
-	outbound_history--> inbound_spent
-	inbound_history--> inbound_spent
-	inbound_spent--> inbound_spent_negative
-	style inbound_spent fill:#4CAF50
-	inbound_spent--> sku_ready_stock_err
-	style inbound_spent fill:#4CAF50
-	sku_ready_stock_state--> sku_ready_stock_err
-	style sku_ready_stock_state fill:#4CAF50
-	inv_item_log--> restock_arrived_log
-	restock_arrived_log--> daily_team_restock_arrived
-	daily_team_restock_arrived--> team_daily_inbound
-	inv_item_log--> return_arrived_log
-	return_arrived_log--> daily_team_return_arrived
-	daily_team_return_arrived--> team_daily_inbound
-	team_daily_inbound--> team_daily_stock
-	created_item_log--> daily_team_order_spent
-	daily_team_order_spent--> team_daily_outbound
-	style daily_team_order_spent fill:#4CAF50
-	broken_created_log--> daily_team_broken_created
-	daily_team_broken_created--> team_daily_outbound
-	style daily_team_broken_created fill:#4CAF50
-	team_daily_outbound--> team_daily_stock
-	inv_item_log--> adjustment_created_log
-	adjustment_created_log--> daily_team_adjustment_created
-	daily_team_adjustment_created--> team_daily_stock
-	style daily_team_adjustment_created fill:#4CAF50
-	team_daily_stock--> team_stock_err
-	style team_daily_stock fill:#4CAF50
-	sku_ready_stock_state--> team_ready_stock_state
-	style sku_ready_stock_state fill:#4CAF50
-	team_ready_stock_state--> team_stock_err
-	inv_item_log--> restock_created_log
-	restock_created_log--> daily_team_restock_created
-	daily_team_restock_created--> daily_team_restock
-	daily_team_restock_arrived--> daily_team_restock
-	inv_item_log--> restock_state
-	restock_state--> team_restock_state
-	inv_item_log--> return_created_log
-	return_created_log--> daily_team_return_created
-	daily_team_return_created--> daily_team_return
-	daily_team_return_arrived--> daily_team_return
+	kontrol_stock--> [*]
+	style kontrol_stock fill:#4CAF50
 	order_item_log--> variant_sold
-	order_created_log--> user_revenue_created
-	order_created_log--> team_created_log
-	team_created_log--> daily_team_holds
-	order_completed_log--> team_completed_log
-	team_completed_log--> daily_team_holds
-	daily_team_holds--> last_daily_team_hold
-	style daily_team_holds fill:#4CAF50
-	last_daily_team_hold--> team_hold_err
-	current_order_hold--> team_hold_state
-	style current_order_hold fill:#4CAF50
-	team_hold_state--> team_hold_err
-	style team_hold_state fill:#4CAF50
-	order_created_log--> shop_created_log
-	shop_created_log--> daily_shop_holds
-	order_completed_log--> shop_completed_log
-	shop_completed_log--> daily_shop_holds
-	daily_shop_holds--> last_daily_shop_hold
-	style daily_shop_holds fill:#4CAF50
-	last_daily_shop_hold--> shop_hold_err
-	current_order_hold--> shop_hold_state
-	style current_order_hold fill:#4CAF50
-	shop_hold_state--> shop_hold_err
-	style shop_hold_state fill:#4CAF50
+	variant_sold--> kontrol_stock
+	style variant_sold fill:#4CAF50
+	variant_current_stock--> kontrol_stock
+	style variant_current_stock fill:#4CAF50
+	tx_item_log--> warehouse_variant_ongoing_stock
+	warehouse_variant_ongoing_stock--> kontrol_stock
+	style warehouse_variant_ongoing_stock fill:#4CAF50
+	variation_ref--> kontrol_stock

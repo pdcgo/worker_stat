@@ -37,7 +37,12 @@ func (k KontrolStock) BuildQuery(graph *batch_compute.GraphContext) string {
 				sum(vcs.item_count) filter (where vcs.warehouse_id = 94) as palem_ready_stock_count,
 				sum(vcs.item_count) filter (where vcs.warehouse_id = 96) as cemara_ready_stock_count,
 				sum(vcs.item_count) filter (where vcs.warehouse_id = 67) as febri_ready_stock_count,
-				sum(vcs.item_count) filter (where vcs.warehouse_id = 38) as santo_ready_stock_count
+				sum(vcs.item_count) filter (where vcs.warehouse_id = 38) as santo_ready_stock_count,
+
+				sum(vcs.total_amount) filter (where vcs.warehouse_id = 94) as palem_ready_stock_amount,
+				sum(vcs.total_amount) filter (where vcs.warehouse_id = 96) as cemara_ready_stock_amount,
+				sum(vcs.total_amount) filter (where vcs.warehouse_id = 67) as febri_ready_stock_amount,
+				sum(vcs.total_amount) filter (where vcs.warehouse_id = 38) as santo_ready_stock_amount
 				
 			from %s vcs 
 			group by vcs.variant_id
@@ -50,35 +55,88 @@ func (k KontrolStock) BuildQuery(graph *batch_compute.GraphContext) string {
 				sum(os.item_count) filter (where os.warehouse_id = 94) as palem_ongoing_stock_count,
 				sum(os.item_count) filter (where os.warehouse_id = 96) as cemara_ongoing_stock_count,
 				sum(os.item_count) filter (where os.warehouse_id = 67) as febri_ongoing_stock_count,
-				sum(os.item_count) filter (where os.warehouse_id = 38) as santo_ongoing_stock_count
+				sum(os.item_count) filter (where os.warehouse_id = 38) as santo_ongoing_stock_count,
+
+				sum(os.item_amount) filter (where os.warehouse_id = 94) as palem_ongoing_stock_amount,
+				sum(os.item_amount) filter (where os.warehouse_id = 96) as cemara_ongoing_stock_amount,
+				sum(os.item_amount) filter (where os.warehouse_id = 67) as febri_ongoing_stock_amount,
+				sum(os.item_amount) filter (where os.warehouse_id = 38) as santo_ongoing_stock_amount
 			from %s os
 			group by os.variation_id
+		),
+
+		fix as (
+			select 
+				vv.id as variation_id,
+				vr.team_id,
+				
+				s7.santo_sold_count,
+				s7.febri_sold_count,
+				s7.palem_sold_count,
+				s7.cemara_sold_count,
+				
+				
+				rd.palem_ready_stock_count,
+				rd.palem_ready_stock_amount,
+				rd.cemara_ready_stock_count,
+				rd.cemara_ready_stock_amount,
+				rd.febri_ready_stock_count,
+				rd.febri_ready_stock_amount,
+				rd.santo_ready_stock_count,
+				rd.santo_ready_stock_amount,
+				
+				og.palem_ongoing_stock_count,
+				og.palem_ongoing_stock_amount,
+				og.cemara_ongoing_stock_count,
+				og.cemara_ongoing_stock_amount,
+				og.febri_ongoing_stock_count,
+				og.febri_ongoing_stock_amount,
+				og.santo_ongoing_stock_count,
+				og.santo_ongoing_stock_amount
+				
+			from variation_values vv 
+			left join s7 on s7.variation_id = vv.id
+			left join rd on rd.variation_id = vv.id
+			left join og on og.variation_id = vv.id
+			left join %s vr on vr.variation_id = vv.id
 		)
 
 		select 
-			vv.id as variation_id,
-			vr.team_id,
+			p.name as product_name,
+			vv.ref_id,
 			
-			s7.palem_sold_count,
-			s7.cemara_sold_count,
-			s7.febri_sold_count,
-			s7.santo_sold_count,
+
+			(fix.santo_sold_count / 7) as daily_santo_sold_count,
+			(fix.febri_sold_count / 7) as daily_febri_sold_count,
+			(fix.palem_sold_count / 7) as daily_palem_sold_count,
+			(fix.cemara_sold_count / 7) as daily_cemara_sold_count,
 			
-			rd.palem_ready_stock_count,
-			rd.cemara_ready_stock_count,
-			rd.febri_ready_stock_count,
-			rd.santo_ready_stock_count,
+			fix.santo_ready_stock_count,
+			fix.santo_ready_stock_amount,
+			fix.febri_ready_stock_count,
+			fix.febri_ready_stock_amount,
+			fix.palem_ready_stock_count,
+			fix.palem_ready_stock_amount,
+			fix.cemara_ready_stock_count,
+			fix.cemara_ready_stock_amount,
 			
-			og.palem_ongoing_stock_count,
-			og.cemara_ongoing_stock_count,
-			og.febri_ongoing_stock_count,
-			og.santo_ongoing_stock_count
+			fix.santo_ongoing_stock_count,
+			fix.santo_ongoing_stock_amount,
+			fix.febri_ongoing_stock_count,
+			fix.febri_ongoing_stock_amount,
+			fix.palem_ongoing_stock_count,
+			fix.palem_ongoing_stock_amount,
+			fix.cemara_ongoing_stock_count,
+			fix.cemara_ongoing_stock_amount,
+
+			p.markup_percent,
+
+			fix.team_id
 			
-		from variation_values vv 
-		left join s7 on s7.variation_id = vv.id
-		left join rd on rd.variation_id = vv.id
-		left join og on og.variation_id = vv.id
-		left join %s vr on vr.variation_id = vv.id
+		from fix
+		left join public.variation_values vv on vv.id = fix.variation_id
+		left join public.products p on p.id = vv.product_id
+		
 		`,
 		graph.DependName(k, &product.VariantSold{}),
 		graph.DependName(k, &product.VariantCurrentStock{}),
