@@ -66,9 +66,10 @@ func NewBatch(db *gorm.DB) BatchFunc {
 			// }
 
 			tableToCompute = []batch_compute.Table{
-				profit.UserOrderRevenue{},
-				profit.TeamOrderRevenue{},
-				profit.ShopOrderRevenue{},
+				// profit.UserOrderRevenue{},
+				// profit.TeamOrderRevenue{},
+				// profit.ShopOrderRevenue{},
+				sheet.KontrolStock{},
 				// order.TeamHoldErr{},
 			}
 
@@ -83,6 +84,7 @@ func NewBatch(db *gorm.DB) BatchFunc {
 				profit.UserOrderRevenue{},
 				profit.TeamOrderRevenue{},
 				profit.ShopOrderRevenue{},
+				profit.UserOrderRevenue{},
 
 				// kebutuhan sheet
 				sheet.KontrolStock{},

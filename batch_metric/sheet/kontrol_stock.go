@@ -25,7 +25,7 @@ func (k KontrolStock) BuildQuery(graph *batch_compute.GraphContext) string {
 				
 			from %s vs
 			where 
-				vs.day >= now() - interval '7 days'
+				vs.day > now() - interval '7 days'
 			
 			group by vs.variation_id
 
