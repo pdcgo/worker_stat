@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pdcgo/worker_stat/batch_compute"
+	"github.com/pdcgo/worker_stat/batch_metric/profit/cost"
 )
 
 type TeamOrderRevenue struct{}
@@ -18,6 +19,7 @@ func (t TeamOrderRevenue) BuildQuery(graph *batch_compute.GraphContext) string {
 			
 			sum(al.real_revenue_amount) as real_revenue_amount,
 			sum(al.estimated_revenue_amount) as estimated_revenue_amount,
+			sum(al.order_cost_amount) as order_cost_amount,
 			
 			sum(al.adj_real_revenue_amount) as adj_real_revenue_amount,
 			
@@ -48,9 +50,26 @@ type TeamProfit struct{}
 func (t TeamProfit) BuildQuery(graph *batch_compute.GraphContext) string {
 	return fmt.Sprintf(
 		`
-		select * from %s
+		select 
+
+			coalesce(tor.day, tac.day) as day,
+			coalesce(tor.team_id, tac.team_id) as team_id,
+			
+			
+			tor.real_revenue_amount,
+			tac.ads_expense_amount,
+			tor.order_cost_amount,
+			(
+				coalesce(tor.real_revenue_amount, 0)
+				- coalesce(tac.ads_expense_amount, 0)
+				- coalesce(tor.order_cost_amount, 0)
+			) as selling_profit_amount
+			
+		from %s tor
+		full join %s tac on tac.day = tor.day and tac.team_id = tor.team_id 
 		`,
 		graph.DependName(t, TeamOrderRevenue{}),
+		graph.DependName(t, cost.TeamAdsCost{}),
 	)
 }
 

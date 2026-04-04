@@ -1,13 +1,8 @@
 stateDiagram-v2
-	user_order_revenue--> [*]
-	style user_order_revenue fill:#4CAF50
-	team_order_revenue--> [*]
-	style team_order_revenue fill:#4CAF50
-	shop_order_revenue--> [*]
-	style shop_order_revenue fill:#4CAF50
-	adjustment_log--> user_order_revenue
-	style adjustment_log fill:#4CAF50
+	team_profit--> [*]
+	style team_profit fill:#4CAF50
 	adjustment_log--> team_order_revenue
 	style adjustment_log fill:#4CAF50
-	adjustment_log--> shop_order_revenue
-	style adjustment_log fill:#4CAF50
+	team_order_revenue--> team_profit
+	style team_order_revenue fill:#4CAF50
+	team_ads_cost--> team_profit

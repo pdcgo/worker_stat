@@ -69,7 +69,7 @@ func NewBatch(db *gorm.DB) BatchFunc {
 				// profit.UserOrderRevenue{},
 				// profit.TeamOrderRevenue{},
 				// profit.ShopOrderRevenue{},
-				sheet.KontrolStock{},
+				profit.TeamProfit{},
 				// order.TeamHoldErr{},
 			}
 
@@ -80,9 +80,11 @@ func NewBatch(db *gorm.DB) BatchFunc {
 				performance.DailyUserPicking{},
 				performance.DailyWarehouseCompleted{},
 
+				// profit
+				profit.TeamProfit{},
+
 				// revenue
 				profit.UserOrderRevenue{},
-				profit.TeamOrderRevenue{},
 				profit.ShopOrderRevenue{},
 				profit.UserOrderRevenue{},
 

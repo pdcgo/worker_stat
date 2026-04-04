@@ -41,6 +41,11 @@ func (a AdjustmentLog) BuildQuery(graph *batch_compute.GraphContext) string {
 				when 1 then o.order_mp_total
 			else 0 
 			end as estimated_revenue_amount,
+
+			case d.seed
+				when 1 then o.total
+			else 0 
+			end as order_cost_amount,
 			
 			case d.seed
 				when 1 then 1
