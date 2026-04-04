@@ -67,13 +67,13 @@ func (t UserAdsCost) BuildQuery(graph *batch_compute.GraphContext) string {
 		`
 		select
 			date(ah.at) as day,
-			ah.created_by_id,
+			ah.created_by_id as user_id,
 			
 			sum(ah.amount) as ads_expense_amount
 			
 		from public.ads_expense_histories ah
 		where ah.at > '%s'
-		group by (day, ah.created_by_id)  
+		group by (day, user_id)  
 		`,
 		graph.Filter.StartDate.Format("2006-01-02"),
 	)
