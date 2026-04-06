@@ -7,6 +7,8 @@ stateDiagram-v2
 	style daily_warehouse_completed fill:#4CAF50
 	team_profit--> [*]
 	style team_profit fill:#4CAF50
+	team_order_revenue_invalid--> [*]
+	style team_order_revenue_invalid fill:#4CAF50
 	shop_profit--> [*]
 	style shop_profit fill:#4CAF50
 	user_profit--> [*]
@@ -41,6 +43,9 @@ stateDiagram-v2
 	team_order_revenue--> team_profit
 	style team_order_revenue fill:#4CAF50
 	team_ads_cost--> team_profit
+	team_daily_withdrawal--> team_order_revenue_invalid
+	team_order_revenue--> team_order_revenue_invalid
+	style team_order_revenue fill:#4CAF50
 	adjustment_log--> shop_order_revenue
 	style adjustment_log fill:#4CAF50
 	shop_order_revenue--> shop_profit

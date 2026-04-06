@@ -7,6 +7,43 @@ import (
 	"github.com/pdcgo/worker_stat/batch_metric/profit/cost"
 )
 
+type TeamDailyWithdrawal struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (t TeamDailyWithdrawal) BuildQuery(graph *batch_compute.GraphContext) string {
+	return `
+		with d as (
+			select 
+				distinct
+				wl.team_id,
+				wl.shop_id,
+				wl.amount,
+				wl.at
+			from v2_withdrawal_logs wl
+		)
+
+		select 
+			date(d.at) as day,
+			d.team_id as team_id,
+			sum(d.amount) as amount
+		from d
+		group by (
+			day,
+			team_id
+		)
+		`
+}
+
+// TableName implements [batch_compute.Table].
+func (t TeamDailyWithdrawal) TableName() string {
+	return "team_daily_withdrawal"
+}
+
+// Temporary implements [batch_compute.Table].
+func (t TeamDailyWithdrawal) Temporary() bool {
+	return true
+}
+
 type TeamOrderRevenue struct{}
 
 func (t TeamOrderRevenue) BuildQuery(graph *batch_compute.GraphContext) string {
@@ -41,6 +78,48 @@ func (t TeamOrderRevenue) TableName() string {
 }
 
 func (t TeamOrderRevenue) Temporary() bool {
+	return false
+}
+
+type TeamOrderRevenueInvalid struct{}
+
+// BuildQuery implements [batch_compute.Table].
+func (t TeamOrderRevenueInvalid) BuildQuery(graph *batch_compute.GraphContext) string {
+	return fmt.Sprintf(
+		`
+		with d as (
+			select 
+				coalesce(dw.day, tor.day) as day,
+				coalesce(dw.team_id, tor.team_id) as team_id,
+				coalesce(dw.amount, 0) as csv_amount,
+				tor.real_revenue_amount
+			from %s dw
+			full join %s tor on tor.team_id = dw.team_id and tor.day = dw.day
+		)
+
+		select
+			d.day,
+			d.team_id,
+			d.real_revenue_amount,
+			d.csv_amount,
+			(
+				d.real_revenue_amount + d.csv_amount
+			) as invalid_amount
+		from d
+		order by d.day desc
+		`,
+		graph.DependName(t, TeamDailyWithdrawal{}),
+		graph.DependName(t, TeamOrderRevenue{}),
+	)
+}
+
+// TableName implements [batch_compute.Table].
+func (t TeamOrderRevenueInvalid) TableName() string {
+	return "team_order_revenue_invalid"
+}
+
+// Temporary implements [batch_compute.Table].
+func (t TeamOrderRevenueInvalid) Temporary() bool {
 	return false
 }
 
