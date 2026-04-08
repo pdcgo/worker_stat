@@ -1,8 +1,26 @@
 stateDiagram-v2
-	team_order_revenue_invalid--> [*]
-	style team_order_revenue_invalid fill:#4CAF50
-	team_daily_withdrawal--> team_order_revenue_invalid
-	adjustment_log--> team_order_revenue
-	style adjustment_log fill:#4CAF50
-	team_order_revenue--> team_order_revenue_invalid
-	style team_order_revenue fill:#4CAF50
+	team_stock_err--> [*]
+	style team_stock_err fill:#4CAF50
+	inv_item_log--> restock_arrived_log
+	restock_arrived_log--> daily_team_restock_arrived
+	daily_team_restock_arrived--> team_daily_inbound
+	inv_item_log--> return_arrived_log
+	return_arrived_log--> daily_team_return_arrived
+	daily_team_return_arrived--> team_daily_inbound
+	team_daily_inbound--> team_daily_stock
+	created_item_log--> daily_team_order_spent
+	daily_team_order_spent--> team_daily_outbound
+	style daily_team_order_spent fill:#4CAF50
+	broken_created_log--> daily_team_broken_created
+	daily_team_broken_created--> team_daily_outbound
+	style daily_team_broken_created fill:#4CAF50
+	team_daily_outbound--> team_daily_stock
+	inv_item_log--> adjustment_created_log
+	adjustment_created_log--> daily_team_adjustment_created
+	daily_team_adjustment_created--> team_daily_stock
+	style daily_team_adjustment_created fill:#4CAF50
+	team_daily_stock--> team_stock_err
+	style team_daily_stock fill:#4CAF50
+	sku_ready_stock_state--> team_ready_stock_state
+	style sku_ready_stock_state fill:#4CAF50
+	team_ready_stock_state--> team_stock_err

@@ -20,7 +20,16 @@ func (a AdjustmentLog) BuildQuery(graph *batch_compute.GraphContext) string {
 				oa.order_id,
 				oa.fund_at,
 				oa.type as adj_type,
-				oa.amount
+				oa.amount,
+				case
+					when oa.source = 2 then oa.amount
+					else 0
+				end as import_amount,
+
+				case
+					when oa.source != 2 then oa.amount
+					else 0
+				end as manual_amount
 				
 			from public.order_adjustments oa 
 			left join public.orders o on o.id = oa.order_id

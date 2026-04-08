@@ -11,6 +11,8 @@ stateDiagram-v2
 	style team_order_revenue_invalid fill:#4CAF50
 	shop_profit--> [*]
 	style shop_profit fill:#4CAF50
+	shop_order_revenue_invalid--> [*]
+	style shop_order_revenue_invalid fill:#4CAF50
 	user_profit--> [*]
 	style user_profit fill:#4CAF50
 	kontrol_stock--> [*]
@@ -51,6 +53,10 @@ stateDiagram-v2
 	shop_order_revenue--> shop_profit
 	style shop_order_revenue fill:#4CAF50
 	shop_ads_cost--> shop_profit
+	shop_daily_withdrawal--> shop_order_revenue_invalid
+	style shop_daily_withdrawal fill:#4CAF50
+	shop_order_revenue--> shop_order_revenue_invalid
+	style shop_order_revenue fill:#4CAF50
 	adjustment_log--> user_order_revenue
 	style adjustment_log fill:#4CAF50
 	user_order_revenue--> user_profit
