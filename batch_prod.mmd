@@ -48,6 +48,8 @@ stateDiagram-v2
 	team_daily_withdrawal--> team_order_revenue_invalid
 	team_order_revenue--> team_order_revenue_invalid
 	style team_order_revenue fill:#4CAF50
+	adjustment_log--> team_order_revenue_invalid
+	style adjustment_log fill:#4CAF50
 	adjustment_log--> shop_order_revenue
 	style adjustment_log fill:#4CAF50
 	shop_order_revenue--> shop_profit
@@ -57,6 +59,8 @@ stateDiagram-v2
 	style shop_daily_withdrawal fill:#4CAF50
 	shop_order_revenue--> shop_order_revenue_invalid
 	style shop_order_revenue fill:#4CAF50
+	adjustment_log--> shop_order_revenue_invalid
+	style adjustment_log fill:#4CAF50
 	adjustment_log--> user_order_revenue
 	style adjustment_log fill:#4CAF50
 	user_order_revenue--> user_profit

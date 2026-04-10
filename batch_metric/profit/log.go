@@ -27,6 +27,7 @@ func (a AdjustmentLog) BuildQuery(graph *batch_compute.GraphContext) string {
 				end as import_amount,
 
 				case
+					when oa.source is null then oa.amount
 					when oa.source != 2 then oa.amount
 					else 0
 				end as manual_amount

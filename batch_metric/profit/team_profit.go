@@ -81,48 +81,6 @@ func (t TeamOrderRevenue) Temporary() bool {
 	return false
 }
 
-type TeamOrderRevenueInvalid struct{}
-
-// BuildQuery implements [batch_compute.Table].
-func (t TeamOrderRevenueInvalid) BuildQuery(graph *batch_compute.GraphContext) string {
-	return fmt.Sprintf(
-		`
-		with d as (
-			select 
-				coalesce(dw.day, tor.day) as day,
-				coalesce(dw.team_id, tor.team_id) as team_id,
-				coalesce(dw.amount, 0) as csv_amount,
-				tor.total_revenue_amount
-			from %s dw
-			full join %s tor on tor.team_id = dw.team_id and tor.day = dw.day
-		)
-
-		select
-			d.day,
-			d.team_id,
-			d.total_revenue_amount,
-			d.csv_amount,
-			(
-				d.csv_amount + d.total_revenue_amount
-			) as invalid_amount
-		from d
-		order by d.day desc
-		`,
-		graph.DependName(t, TeamDailyWithdrawal{}),
-		graph.DependName(t, TeamOrderRevenue{}),
-	)
-}
-
-// TableName implements [batch_compute.Table].
-func (t TeamOrderRevenueInvalid) TableName() string {
-	return "team_order_revenue_invalid"
-}
-
-// Temporary implements [batch_compute.Table].
-func (t TeamOrderRevenueInvalid) Temporary() bool {
-	return false
-}
-
 type TeamProfit struct{}
 
 // BuildQuery implements [batch_compute.Table].

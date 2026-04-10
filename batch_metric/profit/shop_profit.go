@@ -78,48 +78,6 @@ func (s ShopOrderRevenue) Temporary() bool {
 	return false
 }
 
-type ShopOrderRevenueInvalid struct{}
-
-// BuildQuery implements [batch_compute.Table].
-func (s ShopOrderRevenueInvalid) BuildQuery(graph *batch_compute.GraphContext) string {
-	return fmt.Sprintf(
-		`
-		with d as (
-			select 
-				coalesce(dw.day, tor.day) as day,
-				coalesce(dw.shop_id, tor.shop_id) as shop_id,
-				coalesce(dw.amount, 0) as csv_amount,
-				tor.total_revenue_amount
-			from %s dw
-			full join %s tor on tor.shop_id = dw.shop_id and tor.day = dw.day
-		)
-
-		select
-			d.day,
-			d.shop_id,
-			d.total_revenue_amount,
-			d.csv_amount,
-			(
-				d.csv_amount + d.total_revenue_amount
-			) as invalid_amount
-		from d
-		order by d.day desc
-		`,
-		graph.DependName(s, ShopDailyWithdrawal{}),
-		graph.DependName(s, ShopOrderRevenue{}),
-	)
-}
-
-// TableName implements [batch_compute.Table].
-func (s ShopOrderRevenueInvalid) TableName() string {
-	return "shop_order_revenue_invalid"
-}
-
-// Temporary implements [batch_compute.Table].
-func (s ShopOrderRevenueInvalid) Temporary() bool {
-	return false
-}
-
 type ShopProfit struct{}
 
 func (s ShopProfit) BuildQuery(graph *batch_compute.GraphContext) string {

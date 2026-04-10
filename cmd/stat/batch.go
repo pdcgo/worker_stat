@@ -66,15 +66,8 @@ func NewBatch(db *gorm.DB) BatchFunc {
 			// }
 
 			tableToCompute = []batch_compute.Table{
-				// profit.UserOrderRevenue{},
-				// profit.TeamOrderRevenue{},
-				// profit.ShopOrderRevenue{},
-				// profit.TeamOrderRevenueInvalid{},
-				// profit.ShopOrderRevenueInvalid{},
-				stock.TeamStockErr{},
-				// profit.ShopProfit{},
-				// profit.UserProfit{},
-				// order.TeamHoldErr{},
+				profit.ShopOrderRevenueInvalid{},
+				profit.TeamOrderRevenueInvalid{},
 			}
 
 		} else {
