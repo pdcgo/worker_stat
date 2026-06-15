@@ -1,178 +1,167 @@
 package replication
 
-import (
-	"encoding/json"
-	"fmt"
-	"reflect"
-	"strconv"
-	"time"
+// type DecoderFunc func(raw []byte) (any, error)
 
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/shopspring/decimal"
-)
+// type Decoder struct {
+// 	byOID map[uint32]DecoderFunc
+// }
 
-type DecoderFunc func(raw []byte) (any, error)
+// const (
+// 	OIDBool        = 16
+// 	OIDInt8        = 20
+// 	OIDInt4        = 23
+// 	OIDText        = 25
+// 	OIDFloat8      = 701
+// 	OIDNumeric     = 1700
+// 	OIDTimestampTZ = 1184
+// 	OIDJSONB       = 3802
+// )
 
-type Decoder struct {
-	byOID map[uint32]DecoderFunc
-}
+// func NewDecoder() *Decoder {
+// 	d := &Decoder{
+// 		byOID: map[uint32]DecoderFunc{},
+// 	}
 
-const (
-	OIDBool        = 16
-	OIDInt8        = 20
-	OIDInt4        = 23
-	OIDText        = 25
-	OIDFloat8      = 701
-	OIDNumeric     = 1700
-	OIDTimestampTZ = 1184
-	OIDJSONB       = 3802
-)
+// 	d.byOID[OIDBool] = func(b []byte) (any, error) {
+// 		return b[0] == 't', nil
+// 	}
 
-func NewDecoder() *Decoder {
-	d := &Decoder{
-		byOID: map[uint32]DecoderFunc{},
-	}
+// 	d.byOID[OIDInt8] = func(b []byte) (any, error) {
+// 		return strconv.ParseInt(string(b), 10, 64)
+// 	}
 
-	d.byOID[OIDBool] = func(b []byte) (any, error) {
-		return b[0] == 't', nil
-	}
+// 	d.byOID[OIDInt4] = func(b []byte) (any, error) {
+// 		return strconv.Atoi(string(b))
+// 	}
 
-	d.byOID[OIDInt8] = func(b []byte) (any, error) {
-		return strconv.ParseInt(string(b), 10, 64)
-	}
+// 	d.byOID[OIDFloat8] = func(b []byte) (any, error) {
+// 		return strconv.ParseFloat(string(b), 64)
+// 	}
 
-	d.byOID[OIDInt4] = func(b []byte) (any, error) {
-		return strconv.Atoi(string(b))
-	}
+// 	d.byOID[OIDNumeric] = func(b []byte) (any, error) {
+// 		return decimal.NewFromString(string(b))
+// 	}
 
-	d.byOID[OIDFloat8] = func(b []byte) (any, error) {
-		return strconv.ParseFloat(string(b), 64)
-	}
+// 	d.byOID[OIDText] = func(b []byte) (any, error) {
+// 		return string(b), nil
+// 	}
 
-	d.byOID[OIDNumeric] = func(b []byte) (any, error) {
-		return decimal.NewFromString(string(b))
-	}
+// 	d.byOID[OIDTimestampTZ] = func(b []byte) (any, error) {
+// 		return time.Parse(time.RFC3339Nano, string(b))
+// 	}
 
-	d.byOID[OIDText] = func(b []byte) (any, error) {
-		return string(b), nil
-	}
+// 	d.byOID[OIDJSONB] = func(b []byte) (any, error) {
+// 		var v any
+// 		err := json.Unmarshal(b, &v)
+// 		return v, err
+// 	}
 
-	d.byOID[OIDTimestampTZ] = func(b []byte) (any, error) {
-		return time.Parse(time.RFC3339Nano, string(b))
-	}
+// 	return d
+// }
 
-	d.byOID[OIDJSONB] = func(b []byte) (any, error) {
-		var v any
-		err := json.Unmarshal(b, &v)
-		return v, err
-	}
+// func (d *Decoder) DecodeRow(
+// 	fields []pgconn.FieldDescription,
+// 	row [][]byte,
+// ) (map[string]any, error) {
 
-	return d
-}
+// 	out := make(map[string]any, len(fields))
 
-func (d *Decoder) DecodeRow(
-	fields []pgconn.FieldDescription,
-	row [][]byte,
-) (map[string]any, error) {
+// 	for i, f := range fields {
+// 		col := string(f.Name)
 
-	out := make(map[string]any, len(fields))
+// 		if row[i] == nil {
+// 			out[col] = nil
+// 			continue
+// 		}
 
-	for i, f := range fields {
-		col := string(f.Name)
+// 		fn, ok := d.byOID[f.DataTypeOID]
+// 		if !ok {
+// 			out[col] = string(row[i]) // fallback
+// 			continue
+// 		}
 
-		if row[i] == nil {
-			out[col] = nil
-			continue
-		}
+// 		v, err := fn(row[i])
+// 		if err != nil {
+// 			return nil, err
+// 		}
 
-		fn, ok := d.byOID[f.DataTypeOID]
-		if !ok {
-			out[col] = string(row[i]) // fallback
-			continue
-		}
+// 		out[col] = v
+// 	}
 
-		v, err := fn(row[i])
-		if err != nil {
-			return nil, err
-		}
+// 	return out, nil
+// }
 
-		out[col] = v
-	}
+// func (d *Decoder) Scan(res *pgconn.Result, dst any) error {
+// 	for _, row := range res.Rows {
+// 		m, err := d.DecodeRow(res.FieldDescriptions, row)
+// 		if err != nil {
+// 			return err
+// 		}
 
-	return out, nil
-}
+// 		err = ToStruct(dst, m)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
 
-func (d *Decoder) Scan(res *pgconn.Result, dst any) error {
-	for _, row := range res.Rows {
-		m, err := d.DecodeRow(res.FieldDescriptions, row)
-		if err != nil {
-			return err
-		}
+// 	return nil
+// }
 
-		err = ToStruct(dst, m)
-		if err != nil {
-			return err
-		}
-	}
+// func ToStruct(dst any, data any) error {
+// 	if dst == nil {
+// 		return fmt.Errorf("dst is nil")
+// 	}
 
-	return nil
-}
+// 	rv := reflect.ValueOf(dst)
+// 	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
+// 		return fmt.Errorf("dst must be pointer to struct")
+// 	}
 
-func ToStruct(dst any, data any) error {
-	if dst == nil {
-		return fmt.Errorf("dst is nil")
-	}
+// 	m, ok := data.(map[string]any)
+// 	if !ok {
+// 		return fmt.Errorf("data must be map[string]any")
+// 	}
 
-	rv := reflect.ValueOf(dst)
-	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("dst must be pointer to struct")
-	}
+// 	sv := rv.Elem()
+// 	st := sv.Type()
 
-	m, ok := data.(map[string]any)
-	if !ok {
-		return fmt.Errorf("data must be map[string]any")
-	}
+// 	for i := 0; i < st.NumField(); i++ {
+// 		fieldType := st.Field(i)
+// 		fieldVal := sv.Field(i)
 
-	sv := rv.Elem()
-	st := sv.Type()
+// 		if !fieldVal.CanSet() {
+// 			continue
+// 		}
 
-	for i := 0; i < st.NumField(); i++ {
-		fieldType := st.Field(i)
-		fieldVal := sv.Field(i)
+// 		col := fieldType.Tag.Get("db")
+// 		if col == "" {
+// 			continue
+// 		}
 
-		if !fieldVal.CanSet() {
-			continue
-		}
+// 		raw, ok := m[col]
+// 		if !ok || raw == nil {
+// 			continue
+// 		}
 
-		col := fieldType.Tag.Get("db")
-		if col == "" {
-			continue
-		}
+// 		rawVal := reflect.ValueOf(raw)
 
-		raw, ok := m[col]
-		if !ok || raw == nil {
-			continue
-		}
+// 		// Direct assignable
+// 		if rawVal.Type().AssignableTo(fieldVal.Type()) {
+// 			fieldVal.Set(rawVal)
+// 			continue
+// 		}
 
-		rawVal := reflect.ValueOf(raw)
+// 		// Convertible (e.g. int -> int64)
+// 		if rawVal.Type().ConvertibleTo(fieldVal.Type()) {
+// 			fieldVal.Set(rawVal.Convert(fieldVal.Type()))
+// 			continue
+// 		}
 
-		// Direct assignable
-		if rawVal.Type().AssignableTo(fieldVal.Type()) {
-			fieldVal.Set(rawVal)
-			continue
-		}
+// 		return fmt.Errorf(
+// 			"cannot assign column %q (%T) to field %q (%s)",
+// 			col, raw, fieldType.Name, fieldVal.Type(),
+// 		)
+// 	}
 
-		// Convertible (e.g. int -> int64)
-		if rawVal.Type().ConvertibleTo(fieldVal.Type()) {
-			fieldVal.Set(rawVal.Convert(fieldVal.Type()))
-			continue
-		}
-
-		return fmt.Errorf(
-			"cannot assign column %q (%T) to field %q (%s)",
-			col, raw, fieldType.Name, fieldVal.Type(),
-		)
-	}
-
-	return nil
-}
+// 	return nil
+// }

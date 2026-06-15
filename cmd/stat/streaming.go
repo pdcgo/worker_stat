@@ -1,251 +1,231 @@
 package main
 
-import (
-	"context"
-	"database/sql"
-	"errors"
-	"fmt"
-	"log/slog"
-	"time"
+// type StreamingFunc cli.ActionFunc
 
-	"github.com/pdcgo/shared/configs"
-	"github.com/pdcgo/shared/custom_connect"
-	"github.com/pdcgo/shared/db_models"
-	"github.com/pdcgo/shared/pkg/common_helper"
-	"github.com/pdcgo/worker_stat/batch_compute"
-	"github.com/pdcgo/worker_stat/replication"
-	"github.com/pdcgo/worker_stat/streaming_compute"
-	"github.com/pdcgo/worker_stat/streaming_metric"
-	"github.com/urfave/cli/v3"
-	"gorm.io/gorm"
-)
+// func NewStreaming(
+// 	cfg *configs.AppConfig,
+// 	db *gorm.DB,
+// ) StreamingFunc {
+// 	return func(ctx context.Context, c *cli.Command) error {
+// 		var err error
+// 		if c.Bool("debug") {
+// 			slog.SetLogLoggerLevel(slog.LevelDebug)
+// 		}
 
-type StreamingFunc cli.ActionFunc
+// 		// initialize trace
+// 		cancelTrace, err := custom_connect.InitTracer("stock_updater")
+// 		if err != nil {
+// 			return err
+// 		}
 
-func NewStreaming(
-	cfg *configs.AppConfig,
-	db *gorm.DB,
-) StreamingFunc {
-	return func(ctx context.Context, c *cli.Command) error {
-		var err error
-		if c.Bool("debug") {
-			slog.SetLogLoggerLevel(slog.LevelDebug)
-		}
+// 		defer cancelTrace(ctx)
 
-		// initialize trace
-		cancelTrace, err := custom_connect.InitTracer("stock_updater")
-		if err != nil {
-			return err
-		}
+// 		var schema string = "test"
 
-		defer cancelTrace(ctx)
+// 		stream := streaming_compute.NewStreamingContext(
+// 			streaming_compute.WithSchemaOption(schema),
+// 		)
 
-		var schema string = "test"
+// 		// registering source
+// 		err = stream.RegisterSource(
+// 			db,
+// 			&streaming_metric.InvTransactionChange{},
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		stream := streaming_compute.NewStreamingContext(
-			streaming_compute.WithSchemaOption(schema),
-		)
+// 		err = stream.RegisterSink(
+// 			db,
+// 			&streaming_metric.SkuStock{},
+// 		)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// registering source
-		err = stream.RegisterSource(
-			db,
-			&streaming_metric.InvTransactionChange{},
-		)
-		if err != nil {
-			return err
-		}
+// 		// registering computation
+// 		compute := stream.Compute(
+// 			&streaming_metric.SkuStock{},
+// 			// &streaming_metric.VariantStock{},
+// 		)
 
-		err = stream.RegisterSink(
-			db,
-			&streaming_metric.SkuStock{},
-		)
-		if err != nil {
-			return err
-		}
+// 		// generate visualization
+// 		visual := c.String("visualization")
+// 		if visual != "" {
+// 			err = stream.GenerateVisualization(visual)
+// 			if err != nil {
+// 				return err
+// 			}
+// 		}
 
-		// registering computation
-		compute := stream.Compute(
-			&streaming_metric.SkuStock{},
-			// &streaming_metric.VariantStock{},
-		)
+// 		// create replication context
+// 		replicate, err := replication.ConnectReplication(ctx, &cfg.Database)
 
-		// generate visualization
-		visual := c.String("visualization")
-		if visual != "" {
-			err = stream.GenerateVisualization(visual)
-			if err != nil {
-				return err
-			}
-		}
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// create replication context
-		replicate, err := replication.ConnectReplication(ctx, &cfg.Database)
+// 		process := common_helper.NewChainParam(
+// 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
+// 				return func(event *replication.ReplicationEvent) (*replication.ReplicationEvent, error) { // filtering cuma inv_transaction
+// 					switch event.SourceMetadata.Table {
+// 					case "inv_transactions":
+// 						return next(event)
+// 					default:
+// 						return event, nil
+// 					}
+// 				}
+// 			},
+// 			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
+// 				return func(data *replication.ReplicationEvent) (*replication.ReplicationEvent, error) {
+// 					var err error
+// 					stream.Lock()
+// 					defer stream.Unlock()
 
-		if err != nil {
-			return err
-		}
+// 					id, ok := data.Data["id"].(int64)
+// 					if !ok {
+// 						return data, errors.New("cannot get id")
+// 					}
 
-		process := common_helper.NewChainParam(
-			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
-				return func(event *replication.ReplicationEvent) (*replication.ReplicationEvent, error) { // filtering cuma inv_transaction
-					switch event.SourceMetadata.Table {
-					case "inv_transactions":
-						return next(event)
-					default:
-						return event, nil
-					}
-				}
-			},
-			func(next common_helper.NextFuncParam[*replication.ReplicationEvent]) common_helper.NextFuncParam[*replication.ReplicationEvent] {
-				return func(data *replication.ReplicationEvent) (*replication.ReplicationEvent, error) {
-					var err error
-					stream.Lock()
-					defer stream.Unlock()
+// 					tx_type := data.Data["type"].(string)
+// 					status := data.Data["status"].(string)
 
-					id, ok := data.Data["id"].(int64)
-					if !ok {
-						return data, errors.New("cannot get id")
-					}
+// 					change := streaming_metric.InvTransactionChange{
+// 						At:      time.Now().UnixMicro(),
+// 						TxID:    uint64(id),
+// 						ModType: data.ModType,
+// 						TxType:  db_models.InvTxType(tx_type),
+// 						Status:  db_models.InvTxStatus(status),
+// 					}
 
-					tx_type := data.Data["type"].(string)
-					status := data.Data["status"].(string)
+// 					slog.Debug("add item to source",
+// 						slog.Any("change", change),
+// 					)
 
-					change := streaming_metric.InvTransactionChange{
-						At:      time.Now().UnixMicro(),
-						TxID:    uint64(id),
-						ModType: data.ModType,
-						TxType:  db_models.InvTxType(tx_type),
-						Status:  db_models.InvTxStatus(status),
-					}
+// 					err = stream.EmitToSource(db, &change)
+// 					if err != nil {
+// 						return data, err
+// 					}
+// 					return data, err
+// 				}
+// 			},
+// 		)
 
-					slog.Debug("add item to source",
-						slog.Any("change", change),
-					)
+// 		// creating runner
+// 		rctx := streaming_compute.NewRunnerContext(ctx)
 
-					err = stream.EmitToSource(db, &change)
-					if err != nil {
-						return data, err
-					}
-					return data, err
-				}
-			},
-		)
+// 		streaming_compute.Run(
+// 			"replication",
+// 			rctx,
+// 			func() error {
+// 				return replicate.
+// 					StreamStart(
+// 						rctx,
+// 						"test",
+// 						"stat_publication",
+// 						func(ctx context.Context, event *replication.ReplicationEvent) error {
+// 							_, err = process(event)
+// 							return err
+// 						},
+// 					)
+// 			},
+// 		)
 
-		// creating runner
-		rctx := streaming_compute.NewRunnerContext(ctx)
+// 		// log.Println(compute)
 
-		streaming_compute.Run(
-			"replication",
-			rctx,
-			func() error {
-				return replicate.
-					StreamStart(
-						rctx,
-						"test",
-						"stat_publication",
-						func(ctx context.Context, event *replication.ReplicationEvent) error {
-							_, err = process(event)
-							return err
-						},
-					)
-			},
-		)
+// 		streaming_compute.RunPeriodically(
+// 			"periodic_stream",
+// 			rctx,
+// 			time.Second*10,
+// 			func() error {
+// 				err = db.
+// 					Transaction(func(tx *gorm.DB) error {
+// 						return compute(rctx, tx)
+// 					},
+// 						&sql.TxOptions{
+// 							Isolation: sql.LevelRepeatableRead,
+// 						},
+// 					)
+// 				slog.Info("finished")
+// 				return err
+// 			},
+// 		)
 
-		// log.Println(compute)
+// 		<-rctx.Done()
 
-		streaming_compute.RunPeriodically(
-			"periodic_stream",
-			rctx,
-			time.Second*10,
-			func() error {
-				err = db.
-					Transaction(func(tx *gorm.DB) error {
-						return compute(rctx, tx)
-					},
-						&sql.TxOptions{
-							Isolation: sql.LevelRepeatableRead,
-						},
-					)
-				slog.Info("finished")
-				return err
-			},
-		)
+// 		slog.Info("replication existed")
 
-		<-rctx.Done()
+// 		err = rctx.
+// 			Error
 
-		slog.Info("replication existed")
+// 		if err != nil {
+// 			slog.Error(err.Error())
+// 		}
+// 		return err
+// 	}
+// }
 
-		err = rctx.
-			Error
+// type SkuOngoingStock struct{}
 
-		if err != nil {
-			slog.Error(err.Error())
-		}
-		return err
-	}
-}
+// // BuildQuery implements [batch_compute.Table].
+// func (s SkuOngoingStock) BuildQuery(graph *batch_compute.GraphContext) string {
+// 	return `
 
-type SkuOngoingStock struct{}
+// 	`
+// }
 
-// BuildQuery implements [batch_compute.Table].
-func (s SkuOngoingStock) BuildQuery(graph *batch_compute.GraphContext) string {
-	return `
-	
-	`
-}
+// // TableName implements [batch_compute.Table].
+// func (s SkuOngoingStock) TableName() string {
+// 	return "sku_ongoing_stock"
+// }
 
-// TableName implements [batch_compute.Table].
-func (s SkuOngoingStock) TableName() string {
-	return "sku_ongoing_stock"
-}
+// // Temporary implements [batch_compute.Table].
+// func (s SkuOngoingStock) Temporary() bool {
+// 	return false
+// }
 
-// Temporary implements [batch_compute.Table].
-func (s SkuOngoingStock) Temporary() bool {
-	return false
-}
+// type IncrementalTable struct {
+// 	table batch_compute.Table
+// }
 
-type IncrementalTable struct {
-	table batch_compute.Table
-}
+// // BuildQuery implements [batch_compute.Table].
+// func (i *IncrementalTable) BuildQuery(graph *batch_compute.GraphContext) string {
+// 	return `
 
-// BuildQuery implements [batch_compute.Table].
-func (i *IncrementalTable) BuildQuery(graph *batch_compute.GraphContext) string {
-	return `
-	
-	`
-}
+// 	`
+// }
 
-// TableName implements [batch_compute.Table].
-func (i *IncrementalTable) TableName() string {
-	return fmt.Sprintf("%s_inc", i.table.TableName())
-}
+// // TableName implements [batch_compute.Table].
+// func (i *IncrementalTable) TableName() string {
+// 	return fmt.Sprintf("%s_inc", i.table.TableName())
+// }
 
-// Temporary implements [batch_compute.Table].
-func (i *IncrementalTable) Temporary() bool {
-	return false
-}
+// // Temporary implements [batch_compute.Table].
+// func (i *IncrementalTable) Temporary() bool {
+// 	return false
+// }
 
-func (i *IncrementalTable) BuildQueries(graph *batch_compute.GraphContext) []string {
-	queries := []string{}
-	queries = graph.BuildQueries(i.table)
+// func (i *IncrementalTable) BuildQueries(graph *batch_compute.GraphContext) []string {
+// 	queries := []string{}
+// 	queries = graph.BuildQueries(i.table)
 
-	tableName := graph.GetTableName(i.table)
-	// copy table if not exists
-	queries = append(queries,
-		fmt.Sprintf(
-			"create table if not exists %s.%s as\n %s",
-			graph.Schema,
-			tableName,
-			i.table.BuildQuery(graph),
-		),
-	)
+// 	tableName := graph.GetTableName(i.table)
+// 	// copy table if not exists
+// 	queries = append(queries,
+// 		fmt.Sprintf(
+// 			"create table if not exists %s.%s as\n %s",
+// 			graph.Schema,
+// 			tableName,
+// 			i.table.BuildQuery(graph),
+// 		),
+// 	)
 
-	return queries
+// 	return queries
 
-}
+// }
 
-func NewIncrementalTable(table batch_compute.Table) batch_compute.Table {
-	return &IncrementalTable{table}
-}
+// func NewIncrementalTable(table batch_compute.Table) batch_compute.Table {
+// 	return &IncrementalTable{table}
+// }
 
 // var cc batch_compute.Table = SkuOngoingStock{}

@@ -2,15 +2,14 @@ package streaming_metric
 
 import (
 	"github.com/pdcgo/shared/db_models"
-	"github.com/pdcgo/worker_stat/replication"
 )
 
 type InvTransactionChange struct {
-	At      int64 `gorm:"primarykey"`
-	TxID    uint64
-	TxType  db_models.InvTxType
-	ModType replication.ModificationType
-	Status  db_models.InvTxStatus
+	At     int64 `gorm:"primarykey"`
+	TxID   uint64
+	TxType db_models.InvTxType
+	// ModType replication.ModificationType
+	Status db_models.InvTxStatus
 }
 
 // Temporary implements [streaming_compute.StreamingSource].

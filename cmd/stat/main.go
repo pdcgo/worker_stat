@@ -23,7 +23,7 @@ func NewAppReplication(
 	batch BatchFunc,
 	playground PlaygroundFunc,
 	stockStream StockStreamFunc,
-	streamPlayground StreamingFunc,
+	// streamPlayground StreamingFunc,
 ) AppReplication {
 
 	defaultFlag := DefaultFlag{
@@ -76,12 +76,12 @@ func NewAppReplication(
 				Description: "streaming stock",
 				Action:      cli.ActionFunc(stockStream),
 			},
-			{
-				Name:        "streaming",
-				Description: "streaming playground",
-				Flags:       defaultFlag,
-				Action:      cli.ActionFunc(streamPlayground),
-			},
+			// {
+			// 	Name:        "streaming",
+			// 	Description: "streaming playground",
+			// 	Flags:       defaultFlag,
+			// 	Action:      cli.ActionFunc(streamPlayground),
+			// },
 			{
 				Name:        "playground",
 				Description: "playground testing",

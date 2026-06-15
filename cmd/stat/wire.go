@@ -16,7 +16,7 @@ func InitializeAppReplication() (AppReplication, error) {
 		NewPlayground,
 		NewBatch,
 		NewStockStream,
-		NewStreaming,
+		// NewStreaming,
 		NewAppReplication,
 	)
 	return &cli.Command{}, nil
